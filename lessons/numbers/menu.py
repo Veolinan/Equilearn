@@ -56,6 +56,9 @@ class NumbersMenu:
         self.result      = None
         self._clock      = pygame.time.Clock()
         self._efont      = pygame.font.SysFont("Segoe UI Emoji", L.font_size(44))
+        from modules.ui.scroll import ScrollHandler
+        self._scroll     = ScrollHandler()
+        L.reset_scroll()
 
     def run(self, screen) -> str:
         self.result = None
@@ -75,6 +78,7 @@ class NumbersMenu:
     def _update(self, gf, dt):
         self.particles = particle_burst(pygame.display.get_surface(),
                                         self.particles, dt)
+        self._scroll.update(gf)
         cx, cy   = gf.cursor
         pinching = gf.is_pinching
         rects    = L.card_grid(len(ITEMS), cols=4)
@@ -134,6 +138,7 @@ class NumbersMenu:
             self._draw_card(screen, i, item, rect)
 
         self._draw_cursor(screen, gf)
+        self._scroll.draw(screen)
         self.particles = particle_burst(screen, self.particles, 0)
 
     def _draw_card(self, screen, i, item, base_rect):

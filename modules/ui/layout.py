@@ -21,20 +21,18 @@ import pygame
 
 
 class Layout:
-    # Authoring resolution  (design is done at this size)
-    BASE_W: int = 1024
-    BASE_H: int = 640
-
-    # Fraction of screen reserved as gesture-only border on each side
-    # UI elements must not enter this zone
+    BASE_W: int     = 1024
+    BASE_H: int     = 640
     MARGIN_FRAC: float = 0.20
 
     def __init__(self):
-        self.sw: int   = self.BASE_W
-        self.sh: int   = self.BASE_H
-        self.sx: float = 1.0    # horizontal scale factor
-        self.sy: float = 1.0    # vertical scale factor
-        self._ready    = False
+        self.sw: int        = self.BASE_W
+        self.sh: int        = self.BASE_H
+        self.sx: float      = 1.0
+        self.sy: float      = 1.0
+        self._ready         = False
+        self._scroll_offset = 0
+        self._scroll_max    = 0
 
     def init(self, screen: pygame.Surface):
         """Call once after pygame.display.set_mode(). Reads actual size."""
@@ -46,7 +44,6 @@ class Layout:
     # ── Coordinate helpers ─────────────────────────────────────────────────
 
     def s(self, px: int) -> int:
-        """Scale a base-resolution pixel value (uses mean scale factor)."""
         return int(px * (self.sx + self.sy) / 2)
 
     def sx_(self, px: int) -> int:
@@ -55,8 +52,6 @@ class Layout:
     def sy_(self, px: int) -> int:
         return int(px * self.sy)
 
-    # ── UI zone ────────────────────────────────────────────────────────────
-
     @property
     def margin_x(self) -> int:
         """Left / right pixel margin — UI must stay inward of this."""
@@ -64,8 +59,22 @@ class Layout:
 
     @property
     def margin_y(self) -> int:
-        """Top / bottom pixel margin."""
+        """Top / bottom pixel margin (base, before scroll)."""
         return int(self.sh * self.MARGIN_FRAC)
+
+    def scroll(self, delta_y: int):
+        """
+        Shift the UI zone vertically by delta_y pixels.
+        Positive = shift down (reveals bottom content).
+        Negative = shift up (reveals top content).
+        Clamped so UI never leaves screen bounds.
+        """
+        limit = int(self.sh * 0.25)   # max 25% of screen height
+        self._scroll_offset = max(-limit, min(limit, 
+                                              self._scroll_offset + delta_y))
+
+    def reset_scroll(self):
+        self._scroll_offset = 0
 
     @property
     def ui_x(self) -> int:
@@ -74,8 +83,8 @@ class Layout:
 
     @property
     def ui_y(self) -> int:
-        """Top edge of the UI zone."""
-        return self.margin_y
+        """Top edge of the UI zone — shifts with scroll_offset."""
+        return self.margin_y + self._scroll_offset
 
     @property
     def ui_w(self) -> int:

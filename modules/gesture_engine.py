@@ -44,6 +44,7 @@ class GestureState:
     OPEN_PALM = "OPEN_PALM"
     THUMBS_UP = "THUMBS_UP"
     FINGERS_N = "FINGERS_N"
+    FIST      = "FIST"       # all fingers curled — use for drag/scroll
 
 
 class GestureFrame:
@@ -53,6 +54,7 @@ class GestureFrame:
         self.finger_count = 0
         self.landmarks    = []
         self.hand_visible = False
+        self.wrist_y      = 0    # raw wrist Y in screen pixels (for scroll drag)
 
     @property
     def is_pinching(self):
@@ -61,6 +63,10 @@ class GestureFrame:
     @property
     def is_pointing(self):
         return self.state in (GestureState.POINTING, GestureState.PINCHING)
+
+    @property
+    def is_fist(self):
+        return self.state == GestureState.FIST
 
 
 class GestureEngine:
@@ -136,6 +142,7 @@ class GestureEngine:
         ]
 
         gf.hand_visible = True
+        gf.wrist_y      = lm[0][1]   # raw wrist Y for scroll tracking
 
         # Smooth all 21 landmarks — reduces skeleton jitter visually
         if not hasattr(self, '_smooth_lm') or self._smooth_lm is None:
@@ -178,6 +185,9 @@ class GestureEngine:
             gf.state = GestureState.PINCHING
         elif all(extended) and thumb_ext:
             gf.state = GestureState.OPEN_PALM
+        elif not any(extended) and not thumb_ext:
+            # All fingers AND thumb curled in → fist
+            gf.state = GestureState.FIST
         elif not any(extended) and thumb_ext:
             gf.state = GestureState.THUMBS_UP
         elif extended[0] and not any(extended[1:]):

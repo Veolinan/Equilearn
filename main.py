@@ -48,6 +48,15 @@ def main():
 
     _loading_screen(screen, "Loading hand tracker…")
     ge = GestureEngine(cap, screen_w=L.sw, screen_h=L.sh, mirror=True)
+
+    # Generate any missing audio files (gTTS, runs in background thread)
+    _loading_screen(screen, "Preparing audio…")
+    import threading
+    def _gen_audio():
+        from modules.sound_player import generate_missing_audio
+        generate_missing_audio(verbose=True)
+    threading.Thread(target=_gen_audio, daemon=True).start()
+
     _loading_screen(screen, "Ready!")
     pygame.time.wait(400)
 

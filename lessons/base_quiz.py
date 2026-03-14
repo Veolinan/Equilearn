@@ -47,15 +47,30 @@ def _bubble_rects(n=4):
 
 
 class BaseQuiz:
-    def __init__(self, ge: GestureEngine, title: str = "Lesson"):
+    def __init__(self, ge: GestureEngine, title: str = "Lesson",
+                 lesson_id: str = ""):
         self.ge        = ge
         self.title     = title
+        self.lesson_id = lesson_id   # used for difficulty + tracking
         self.hold      = HoldDetector(HOLD_S)
         self.back_hold = HoldDetector(BACK_HOLD)
         self._clock    = pygame.time.Clock()
         self.t         = 0.0
         self.particles = []
         self.stars     = self._gen_stars()
+
+        # Scroll handler — fist drag shifts UI zone
+        from modules.ui.scroll import ScrollHandler
+        self._scroll = ScrollHandler()
+        L.reset_scroll()
+
+        # Load difficulty once per lesson session
+        if lesson_id:
+            from modules.difficulty import DM
+            self.difficulty = DM.params(lesson_id)
+        else:
+            self.difficulty = {"level": 1, "label": "⭐"}
+
         self._reset()
 
     def _gen_stars(self):
@@ -75,6 +90,8 @@ class BaseQuiz:
         self.shake_off    = 0
         self.result_msg   = ""
         self.particles    = []
+        self._level_up    = False
+        self._levelup_t   = 0.0
         self.gen_question()
 
     # ── subclasses override ──────────────────────────────────────────────
@@ -109,6 +126,9 @@ class BaseQuiz:
     def _update(self, gf, dt):
         self.particles = particle_burst(pygame.display.get_surface(),
                                         self.particles, dt)
+        # Fist drag → scroll UI zone
+        self._scroll.update(gf)
+
         cx, cy   = gf.cursor
         pinching = gf.is_pinching
 
@@ -140,7 +160,24 @@ class BaseQuiz:
             _, fired = self.hold.update(f"opt_{i}",
                                         (new_hover == i) and pinching)
             if fired:
-                if self.options[i] == self.correct:
+                is_correct = (self.options[i] == self.correct)
+
+                # ── Auto-record to ProgressTracker ─────────────────────
+                if self.lesson_id:
+                    try:
+                        from modules.progress_tracker import ProgressTracker
+                        ProgressTracker().record_lesson(self.lesson_id,
+                                                        is_correct)
+                        # Check if difficulty level just changed
+                        from modules.difficulty import DM
+                        new_diff = DM.params(self.lesson_id)
+                        if new_diff["level"] > self.difficulty["level"]:
+                            self.difficulty  = new_diff
+                            self._level_up   = True
+                    except Exception:
+                        pass
+
+                if is_correct:
                     self.state      = "correct"
                     self.state_t    = 0.0
                     self.result_msg = random.choice(
@@ -159,10 +196,16 @@ class BaseQuiz:
                     self._play("wrong.mp3")
         return None
 
-    def _play(self, sound):
+    def _play(self, sound: str):
+        """Play a named sound. Uses the proper priority system."""
         try:
-            from modules.sound_player import play_sound
-            play_sound(f"assets/sounds/{sound}")
+            from modules import sound_player as sp
+            name = sound.replace(".mp3", "")
+            fn   = getattr(sp, f"play_{name}", None)
+            if fn:
+                fn()
+            else:
+                sp.play_sound(f"assets/sounds/{sound}")
         except Exception:
             pass
 
@@ -203,10 +246,67 @@ class BaseQuiz:
                       min((time.time()-bst)/BACK_HOLD, 1.0),
                       Colors.PURPLE_LIGHT)
 
-        # Lesson title (small, top centre)
+        # Lesson title + level badge (top centre)
         draw_text_centered(screen, self.title,
                            Fonts.label(L.font_size(22)), Colors.TEXT_MUTED,
                            (L.cx, L.ui_y + L.s(22)))
+
+        # Level badge — top right of UI zone
+        level      = self.difficulty.get("level", 1)
+        badge_lbl  = self.difficulty.get("label", "⭐")
+        lvl_colors = {1: (180,140,40), 2: (100,180,255), 3: (120,220,80)}
+        badge_col  = lvl_colors.get(level, (180,140,40))
+        bx         = L.ui_right - L.s(12)
+        by_badge   = L.ui_y + L.s(12)
+        badge_font = Fonts.label(L.font_size(18))
+        lvl_text   = f"Lv.{level}"
+        lt_surf    = badge_font.render(lvl_text, True, badge_col)
+        screen.blit(lt_surf, lt_surf.get_rect(topright=(bx, by_badge)))
+        # Stars underneath
+        star_surf  = pygame.font.SysFont("Segoe UI Emoji",
+                         L.font_size(16)).render(badge_lbl, True, badge_col)
+        screen.blit(star_surf, star_surf.get_rect(
+            topright=(bx, by_badge + L.s(20))))
+
+        # Progress to next level (thin bar under badge)
+        streak     = self.difficulty.get("streak", 0)
+        next_t     = self.difficulty.get("next_threshold")
+        if next_t:
+            prog_w  = L.s(80)
+            prog_h  = L.s(5)
+            prog_x  = bx - prog_w
+            prog_y  = by_badge + L.s(40)
+            pygame.draw.rect(screen, (50,44,80),
+                             (prog_x, prog_y, prog_w, prog_h),
+                             border_radius=L.s(3))
+            fill = int(prog_w * min(streak / next_t, 1.0))
+            if fill > 0:
+                pygame.draw.rect(screen, badge_col,
+                                 (prog_x, prog_y, fill, prog_h),
+                                 border_radius=L.s(3))
+            tip = Fonts.label(L.font_size(13))
+            tip_s = tip.render(f"{streak}/{next_t}", True, Colors.TEXT_MUTED)
+            screen.blit(tip_s, tip_s.get_rect(
+                topright=(bx, prog_y + L.s(7))))
+
+        # Level-up flash overlay
+        if self._level_up:
+            self._levelup_t += 1/60
+            fade = max(0.0, 1.0 - self._levelup_t / 2.5)
+            if fade > 0:
+                ov2 = pygame.Surface((L.sw, L.sh), pygame.SRCALPHA)
+                ov2.fill((80, 220, 120, int(40 * fade)))
+                screen.blit(ov2, (0, 0))
+                bounce = int(L.s(12) * abs(math.sin(self._levelup_t * 6)))
+                draw_text_centered(screen,
+                                   f"Level {level} unlocked!  🎉",
+                                   Fonts.title(L.font_size(56)),
+                                   (80, 220, 120),
+                                   (L.cx, L.cy - bounce),
+                                   shadow=True, shadow_color=(0,60,20))
+            else:
+                self._level_up  = False
+                self._levelup_t = 0.0
 
         # Question (subclass)
         self.draw_question(screen)
@@ -236,7 +336,34 @@ class BaseQuiz:
                                    (L.cx + self.shake_off, ry))
 
         self.particles = particle_burst(screen, self.particles, 0)
+        self._scroll.draw(screen)
+        self._draw_gesture_hints(screen, gf)
         self._draw_cursor(screen, gf)
+
+    def _draw_gesture_hints(self, screen, gf):
+        """Gesture reference strip below safe zone."""
+        from modules.gesture_engine import GestureState as GS
+        hints = [
+            ("👆", "Point",  gf.is_pointing),
+            ("🤏", "Pinch",  gf.is_pinching),
+            ("✊", "Scroll", gf.is_fist),
+        ]
+        em_font  = pygame.font.SysFont("Segoe UI Emoji", L.font_size(20))
+        lbl_font = pygame.font.Font(None, L.font_size(16))
+        total_w  = L.s(360)
+        sx       = L.cx - total_w // 2
+        sy       = L.sh - L.s(32)
+        slot_w   = total_w // len(hints)
+        for i, (emoji, label, active) in enumerate(hints):
+            x    = sx + i * slot_w + slot_w // 2
+            alp  = 240 if active else 55
+            em_s = em_font.render(emoji, True, (255,255,255))
+            em_s.set_alpha(alp)
+            screen.blit(em_s, em_s.get_rect(center=(x, sy)))
+            lb_s = lbl_font.render(label, True,
+                                   (120,200,255) if active else (130,120,170))
+            lb_s.set_alpha(alp)
+            screen.blit(lb_s, lb_s.get_rect(center=(x, sy + L.s(16))))
 
     def _draw_bubble(self, screen, i, base_rect, pal):
         sc   = self.scales[i]

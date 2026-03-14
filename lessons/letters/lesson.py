@@ -109,11 +109,18 @@ class DotToDot:
         """Returns 'done' when all dots hit, 'back' to exit."""
         self.dots     = _dot_positions(self.letter)
         self.n_dots   = len(self.dots)
-        self.current  = 0          # index of next dot to hit
-        self.trail    = []         # dots hit so far (for drawing lines)
-        self.state    = "playing"  # playing | celebrating
+        self.current  = 0
+        self.trail    = []
+        self.state    = "playing"
         self.cel_t    = 0.0
         self.particles= []
+
+        # Say the letter name on entry
+        try:
+            from modules.sound_player import play_letter
+            play_letter(self.letter)
+        except Exception:
+            pass
 
         DOT_R   = max(L.s(22), 18)
         REACH_R = DOT_R + L.s(20)
@@ -305,6 +312,13 @@ class LetterQuiz:
                 for i in range(n)]
 
     def run(self, screen) -> str:
+        # Say the letter on entry
+        try:
+            from modules.sound_player import play_letter
+            play_letter(self.letter)
+        except Exception:
+            pass
+
         PALETTES=[
             ((130,80,255),(80,40,180)),((60,180,255),(20,100,200)),
             ((255,120,60),(180,60,20)),((255,80,160),(180,30,100)),
