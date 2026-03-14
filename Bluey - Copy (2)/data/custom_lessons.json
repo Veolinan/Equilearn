@@ -1,0 +1,118 @@
+{
+  "math": {
+    "id": "math",
+    "name": "multiplication",
+    "emoji": "\u2753",
+    "category": "numbers",
+    "color": "orange",
+    "description": "",
+    "active": true,
+    "created": "2026-03-14",
+    "questions": [
+      {
+        "question": "11 \u2212 2 = ?",
+        "options": [
+          "9",
+          "10",
+          "11",
+          "8"
+        ],
+        "correct": "9",
+        "difficulty": "medium",
+        "hint": "",
+        "id": "q_1773514023802_0"
+      },
+      {
+        "question": "3 \u2212 4 = ?",
+        "options": [
+          "-1",
+          "1",
+          "0",
+          "2"
+        ],
+        "correct": "-1",
+        "difficulty": "medium",
+        "hint": "",
+        "id": "q_1773514023802_1"
+      },
+      {
+        "question": "12 \u2212 2 = ?",
+        "options": [
+          "12",
+          "10",
+          "11",
+          "8"
+        ],
+        "correct": "10",
+        "difficulty": "medium",
+        "hint": "",
+        "id": "q_1773514023802_2"
+      },
+      {
+        "question": "7 \u2212 4 = ?",
+        "options": [
+          "1",
+          "4",
+          "0",
+          "3"
+        ],
+        "correct": "3",
+        "difficulty": "medium",
+        "hint": "",
+        "id": "q_1773514023802_3"
+      },
+      {
+        "question": "11 \u2212 1 = ?",
+        "options": [
+          "13",
+          "10",
+          "11",
+          "7"
+        ],
+        "correct": "10",
+        "difficulty": "medium",
+        "hint": "",
+        "id": "q_1773514023802_4"
+      },
+      {
+        "question": "9 \u2212 5 = ?",
+        "options": [
+          "1",
+          "4",
+          "6",
+          "3"
+        ],
+        "correct": "4",
+        "difficulty": "medium",
+        "hint": "",
+        "id": "q_1773514023802_5"
+      },
+      {
+        "question": "10 \u2212 3 = ?",
+        "options": [
+          "9",
+          "4",
+          "6",
+          "7"
+        ],
+        "correct": "7",
+        "difficulty": "medium",
+        "hint": "",
+        "id": "q_1773514023802_6"
+      },
+      {
+        "question": "4 \u2212 2 = ?",
+        "options": [
+          "4",
+          "5",
+          "3",
+          "2"
+        ],
+        "correct": "2",
+        "difficulty": "medium",
+        "hint": "",
+        "id": "q_1773514023802_7"
+      }
+    ]
+  }
+}

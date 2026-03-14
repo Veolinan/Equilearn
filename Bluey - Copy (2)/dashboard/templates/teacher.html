@@ -1,0 +1,1335 @@
+{% extends "base.html" %}
+{% block title %}Teacher Dashboard{% endblock %}
+
+{% block content %}
+<div class="page" id="teacher-page">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <div class="flex-between mb-24 wrap gap-8">
+    <div>
+      <h1 style="font-size:1.6rem;font-weight:800">👩‍🏫 Teacher Dashboard</h1>
+      <p class="text-muted mt-4" style="font-size:.88rem">
+        Detailed performance analysis, curriculum planner &amp; exercise builder
+      </p>
+    </div>
+    <div class="flex gap-8 wrap">
+      <button class="btn btn-ghost btn-sm" onclick="load()">↻ Refresh</button>
+      <a class="btn btn-ghost btn-sm" href="/api/export/csv" download>⬇ Export CSV</a>
+      <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print</button>
+    </div>
+  </div>
+
+  <!-- ── Tabs (wrapper scopes panel selection) ─────────────── -->
+  <div id="main-tab-container">
+  <div class="tab-bar" id="main-tabs">
+    <button class="tab-btn active" data-tab="tab-perf">📊 Performance</button>
+    <button class="tab-btn"        data-tab="tab-rt">⏱ Response Analysis</button>
+    <button class="tab-btn"        data-tab="tab-letters">🔤 Letters</button>
+    <button class="tab-btn"        data-tab="tab-curriculum">🗓 Curriculum</button>
+    <button class="tab-btn"        data-tab="tab-exercises">✏️ Exercises</button>
+    <button class="tab-btn"        data-tab="tab-lessons">🎮 Custom Lessons</button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- TAB 1 — Performance                                     -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-perf">
+
+    <!-- Stat row -->
+    <div class="stats-grid mb-24" id="perf-stats"></div>
+
+    <!-- Main performance table -->
+    <div class="card mb-24">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Lesson Performance</div>
+          <div class="card-sub">Click a row to drill into charts · WoW = week-over-week change</div>
+        </div>
+        <div class="flex gap-8">
+          <select class="form-control" style="width:160px;padding:7px 12px"
+                  id="sort-select" onchange="sortTable()">
+            <option value="name">Sort: Name</option>
+            <option value="accuracy">Sort: Accuracy</option>
+            <option value="attempts">Sort: Questions</option>
+            <option value="rt">Sort: Response Time</option>
+            <option value="improvement">Sort: Improvement</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="perf-table">
+          <thead><tr>
+            <th>Lesson</th>
+            <th>Status</th>
+            <th>Accuracy</th>
+            <th>7d Acc</th>
+            <th>WoW</th>
+            <th>Questions</th>
+            <th>Best Streak</th>
+            <th>Avg RT</th>
+            <th>RT Trend</th>
+            <th>Retry Rate</th>
+            <th>1st Attempt</th>
+            <th>Focus</th>
+            <th>Target</th>
+          </tr></thead>
+          <tbody id="perf-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Comparison bar chart -->
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Accuracy Comparison</div>
+          <div class="card-sub">All lessons side by side</div>
+        </div>
+        <canvas id="acc-bar-chart"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Response Time Comparison</div>
+          <div class="card-sub">Average seconds per lesson</div>
+        </div>
+        <canvas id="rt-bar-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Week-over-week chart -->
+    <div class="card mb-24">
+      <div class="card-header">
+        <div class="card-title">Week-over-Week Accuracy Change</div>
+        <div class="card-sub">Green = improving · Red = declining</div>
+      </div>
+      <canvas id="wow-chart" style="max-height:160px"></canvas>
+    </div>
+
+  </div><!-- /tab-perf -->
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- TAB 2 — Response Time Analysis                          -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-rt">
+
+    <div class="alert alert-info mb-24">
+      📌 <strong>How to read this:</strong> fast responses (&lt;3s) indicate confidence. Slow responses (&gt;10s) suggest difficulty or distraction. High retry rates mean the child is guessing on first attempt.
+    </div>
+
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Response Time Distribution</div>
+          <div class="card-sub">Stacked by lesson — hover for counts</div>
+        </div>
+        <canvas id="rt-stack-chart"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Median &amp; P90 Response Times</div>
+          <div class="card-sub">P90 = slowest 10% of responses</div>
+        </div>
+        <canvas id="rt-p90-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title mb-16">Detailed Response Breakdown</div>
+      <div class="table-wrap">
+        <table id="rt-table">
+          <thead><tr>
+            <th>Lesson</th>
+            <th>Total Answers</th>
+            <th>Under 3s</th>
+            <th>3 – 6s</th>
+            <th>6 – 10s</th>
+            <th>Over 10s</th>
+            <th>Median RT</th>
+            <th>P90 RT</th>
+            <th>Interpretation</th>
+          </tr></thead>
+          <tbody id="rt-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /tab-rt -->
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- TAB 3 — Letters                                         -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-letters">
+
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Letter Mastery Overview</div>
+          <div class="card-sub">Stage 1–5 shown. S5 + 80% = mastered</div>
+        </div>
+        <div class="letter-grid" id="teacher-letter-grid"></div>
+        <div class="flex gap-16 mt-16 wrap" style="font-size:.78rem">
+          <span style="color:var(--green)">■ Mastered</span>
+          <span style="color:var(--blue)">■ In progress</span>
+          <span style="color:var(--muted2)">■ Not started</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Stage Distribution</div>
+          <div class="card-sub">How many letters at each stage</div>
+        </div>
+        <canvas id="letter-stage-chart"></canvas>
+        <div id="letter-stats" class="flex gap-16 wrap mt-16" style="font-size:.85rem"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title mb-16">Letter Detail Table</div>
+      <div class="table-wrap">
+        <table id="letter-table">
+          <thead><tr>
+            <th>Letter</th><th>Status</th><th>Stage</th>
+            <th>Attempts</th><th>Avg Accuracy</th><th>Notes</th>
+          </tr></thead>
+          <tbody id="letter-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /tab-letters -->
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- TAB 4 — Curriculum Planner                              -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-curriculum">
+
+    <div class="alert alert-info mb-24">
+      🗓 Set accuracy targets and mark which lessons to focus on this week.
+      Targets appear as goal rings on the lesson rows and on the parent dashboard.
+    </div>
+
+    <div class="grid-2 mb-24">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Accuracy Targets</div>
+          <div class="card-sub">Set a target % for each lesson</div>
+        </div>
+        <div id="target-form"></div>
+        <button class="btn btn-primary mt-16" onclick="saveTargets()">Save Targets</button>
+        <div id="target-msg" class="mt-8"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">This Week's Focus</div>
+          <div class="card-sub">Tick lessons to prioritise this week</div>
+        </div>
+        <div id="focus-form"></div>
+        <button class="btn btn-primary mt-16" onclick="saveFocus()">Save Focus</button>
+        <div id="focus-msg" class="mt-8"></div>
+      </div>
+
+    </div>
+
+    <div class="card mb-24">
+      <div class="card-header">
+        <div class="card-title">Lesson Notes</div>
+        <div class="card-sub">Private notes per lesson visible only here</div>
+      </div>
+      <div id="notes-form"></div>
+      <button class="btn btn-primary mt-16" onclick="saveNotes()">Save Notes</button>
+      <div id="notes-msg" class="mt-8"></div>
+    </div>
+
+    <!-- Progress vs targets chart -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Progress vs Targets</div>
+        <div class="card-sub">Current accuracy (bar) against target (line)</div>
+      </div>
+      <canvas id="target-chart" style="max-height:200px"></canvas>
+    </div>
+
+  </div><!-- /tab-curriculum -->
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- TAB 5 — Exercise Builder                                -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-exercises">
+
+    <div class="alert alert-info mb-24">
+      ✏️ Custom exercises are loaded by the game automatically on the next session.
+      They appear alongside built-in questions for the selected lesson.
+    </div>
+
+    <div class="grid-2 mb-24">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Add New Exercise</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lesson</label>
+          <select class="form-control" id="ex-lesson">
+            <option value="">— choose lesson —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Question text</label>
+          <input class="form-control" id="ex-question"
+                 placeholder="e.g. What is 7 + 5?" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Answer options (one per line, 2–4 options)</label>
+          <textarea class="form-control" id="ex-options" rows="4"
+                    placeholder="12&#10;11&#10;13&#10;10"></textarea>
+          <p class="form-hint">Each line becomes one answer bubble in the game.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Correct answer</label>
+          <input class="form-control" id="ex-correct"
+                 placeholder="e.g. 12  (must match one of the options exactly)" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Difficulty</label>
+            <select class="form-control" id="ex-difficulty">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Teacher note (optional)</label>
+            <input class="form-control" id="ex-note"
+                   placeholder="e.g. introduced in week 3" />
+          </div>
+        </div>
+        <div id="ex-error" class="alert alert-error mb-16" style="display:none"></div>
+        <button class="btn btn-primary" onclick="addExercise()">➕ Add Exercise</button>
+        <div id="ex-msg" class="mt-8"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Custom Exercises</div>
+          <div id="ex-count" class="text-muted" style="font-size:.82rem"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Filter by lesson</label>
+          <select class="form-control" id="ex-filter" onchange="renderExercises()">
+            <option value="">All lessons</option>
+          </select>
+        </div>
+        <div id="ex-list" style="max-height:480px;overflow-y:auto"></div>
+      </div>
+
+    </div>
+
+  </div><!-- /tab-exercises -->
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!-- TAB 6 — Custom Lessons                                  -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-lessons">
+
+    <div class="alert alert-info mb-24">
+      🎮 Build full custom lessons that appear in the game's main menu alongside built-in lessons.
+      Each lesson needs at least 4 questions. Students can select them just like regular lessons.
+    </div>
+
+    <div class="grid-2 mb-24">
+
+      <!-- Create / edit lesson -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Create New Lesson</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lesson ID <span class="text-muted">(unique, no spaces)</span></label>
+          <input class="form-control" id="cl-id" placeholder="e.g. times_tables_2" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lesson Name <span class="text-muted">(shown in-game)</span></label>
+          <input class="form-control" id="cl-name" placeholder="e.g. 2× Times Tables" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Emoji Icon</label>
+          <input class="form-control" id="cl-emoji" placeholder="e.g. ✖️" maxlength="4" style="width:80px" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-control" id="cl-category">
+              <option value="numbers">Numbers</option>
+              <option value="letters">Letters</option>
+              <option value="shapes">Shapes &amp; Colors</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Colour</label>
+            <select class="form-control" id="cl-color">
+              <option value="purple">Purple</option>
+              <option value="blue">Blue</option>
+              <option value="green">Green</option>
+              <option value="orange">Orange</option>
+              <option value="pink">Pink</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description <span class="text-muted">(optional)</span></label>
+          <input class="form-control" id="cl-desc" placeholder="e.g. Practice the 2 times table" />
+        </div>
+        <div id="cl-error" class="alert alert-error mb-16" style="display:none"></div>
+        <button class="btn btn-primary" onclick="createLesson()">✚ Create Lesson</button>
+        <div id="cl-msg" class="mt-8"></div>
+      </div>
+
+      <!-- Lesson list -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Custom Lessons</div>
+          <span id="cl-count" class="text-muted" style="font-size:.82rem"></span>
+        </div>
+        <div id="cl-list" style="max-height:540px;overflow-y:auto">
+          <p class="empty">Loading…</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Question builder for selected lesson -->
+    <div class="card" id="cl-question-card" style="display:none">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Questions for: <span id="cl-selected-name"></span></div>
+          <div class="card-sub">Min 4 questions to activate in-game</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="closeQuestionBuilder()">✕ Close</button>
+      </div>
+
+      <div class="grid-2 mb-24">
+        <!-- Add question form -->
+        <div>
+          <h3 style="font-size:.9rem;font-weight:700;margin-bottom:14px">Add Question</h3>
+          <div class="form-group">
+            <label class="form-label">Question</label>
+            <input class="form-control" id="cq-question" placeholder="e.g. 2 × 3 = ?" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Answer options (one per line)</label>
+            <textarea class="form-control" id="cq-options" rows="4"
+                      placeholder="6&#10;4&#10;8&#10;5"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Correct answer</label>
+            <input class="form-control" id="cq-correct" placeholder="6" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Difficulty</label>
+              <select class="form-control" id="cq-difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hint <span class="text-muted">(optional)</span></label>
+              <input class="form-control" id="cq-hint" placeholder="Try counting on fingers" />
+            </div>
+          </div>
+          <div id="cq-error" class="alert alert-error" style="display:none;margin-bottom:12px"></div>
+          <button class="btn btn-primary btn-sm" onclick="addQuestion()">➕ Add Question</button>
+        </div>
+
+        <!-- Question list -->
+        <div>
+          <div class="flex-between mb-16">
+            <h3 style="font-size:.9rem;font-weight:700">Questions (<span id="cq-count">0</span>)</h3>
+            <div class="flex gap-8">
+              <button class="btn btn-ghost btn-sm" onclick="previewLesson()">👁 Preview</button>
+              <button class="btn btn-outline btn-sm" onclick="publishLesson()" id="cq-publish">
+                🎮 Activate in Game
+              </button>
+            </div>
+          </div>
+          <div id="cq-list" style="max-height:400px;overflow-y:auto">
+            <p class="empty">No questions yet</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import from existing lessons -->
+      <div class="divider"></div>
+      <h3 style="font-size:.9rem;font-weight:700;margin:16px 0 12px">
+        Import from Built-in Lessons
+      </h3>
+      <p class="text-muted mb-16" style="font-size:.82rem">
+        Copy questions from existing lessons as a starting point, then edit them.
+      </p>
+      <div class="flex gap-8 wrap">
+        <select class="form-control" id="import-src" style="width:200px">
+          <option value="">— pick lesson —</option>
+        </select>
+        <select class="form-control" id="import-count" style="width:120px">
+          <option value="4">4 questions</option>
+          <option value="8">8 questions</option>
+          <option value="12">12 questions</option>
+          <option value="all">All</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="importQuestions()">⬇ Import</button>
+        <span id="import-msg" class="text-muted" style="font-size:.82rem;align-self:center"></span>
+      </div>
+
+    </div>
+
+    <!-- Lesson preview modal -->
+    <div class="modal-bg" id="preview-modal">
+      <div class="modal" style="width:min(540px,95vw)">
+        <button class="modal-close" onclick="closeModal('preview-modal')">✕</button>
+        <h2 id="preview-title">Lesson Preview</h2>
+        <p class="text-muted mb-16" style="font-size:.82rem">
+          This is how the lesson will appear in-game. Students select answers by pinch-holding.
+        </p>
+        <div id="preview-questions"></div>
+      </div>
+    </div>
+
+  </div><!-- /tab-lessons -->
+
+  </div><!-- /main-tab-container -->
+
+  <!-- ════ MODALS (outside tab container) ════════════════════ -->
+
+  <!-- Lesson drill-down modal -->
+  <div class="modal-bg" id="drill-modal">
+    <div class="modal" style="width:min(760px,95vw)">
+      <button class="modal-close" onclick="closeModal('drill-modal')">✕</button>
+      <h2 id="drill-title">Lesson Detail</h2>
+      <div id="drill-meta" class="flex gap-16 wrap mb-16"></div>
+      <div id="drill-tab-container">
+        <div class="tab-bar" id="drill-tabs">
+          <button class="tab-btn active" data-tab="dt-acc">Accuracy</button>
+          <button class="tab-btn"        data-tab="dt-rt">Response Time</button>
+        </div>
+        <div class="tab-panel active" id="dt-acc">
+          <canvas id="drill-acc-chart"></canvas>
+        </div>
+        <div class="tab-panel" id="dt-rt">
+          <canvas id="drill-rt-chart"></canvas>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="form-group mt-16">
+        <label class="form-label">Teacher note for this lesson</label>
+        <textarea class="form-control" id="drill-note" rows="2"
+                  placeholder="Add a note about this student's performance…"></textarea>
+        <button class="btn btn-ghost btn-sm mt-8" onclick="saveDrillNote()">Save Note</button>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LESSONS     = ["addition","subtraction","multiplication","division",
+                      "counting","odd_even","fill_missing","shapes","colors"]
+const SHORT = {
+  addition:"Addition", subtraction:"Subtraction",
+  multiplication:"Multiplication", division:"Division",
+  counting:"Counting", odd_even:"Odd / Even",
+  fill_missing:"Fill Missing", shapes:"Shapes", colors:"Colors",
+}
+
+let _perf = [], _rtData = {}, _letters = [], _curriculum = {}
+let _accBar, _rtBar, _wowChart, _rtStack, _rtP90, _stageChart, _targetChart
+let _drillAcc, _drillRt
+let _currentDrillId = null
+let _exercises = {}
+
+async function load() {
+  const [perfR, rtR, letR, curR] = await Promise.all([
+    fetch('/api/teacher/performance'),
+    fetch('/api/teacher/response-analysis'),
+    fetch('/api/teacher/letter-analysis'),
+    fetch('/api/curriculum'),
+  ])
+  _perf       = await perfR.json()
+  _rtData     = await rtR.json()
+  _letters    = await letR.json()
+  _curriculum = await curR.json()
+
+  renderPerfStats()
+  renderPerfTable()
+  renderAccBar()
+  renderRtBar()
+  renderWow()
+  renderRtTab()
+  renderLettersTab()
+  renderCurriculumTab()
+  populateExLessons()
+  loadExercises()
+  setUpdated()
+}
+
+// ══ TAB 1: PERFORMANCE ═══════════════════════════════════════
+
+function renderPerfStats() {
+  const active = _perf.filter(l=>l.attempts>0)
+  const avg_acc= active.length
+    ? Math.round(active.reduce((s,l)=>s+l.accuracy_pct,0)/active.length)
+    : 0
+  const mastered = _perf.filter(l=>l.status==='mastered').length
+  const improving= _perf.filter(l=>l.wow!=null && l.wow>0).length
+  const struggling= _perf.filter(l=>l.accuracy_pct<60 && l.attempts>5).length
+  const avg_rt = active.filter(l=>l.avg_rt>0).length
+    ? (active.filter(l=>l.avg_rt>0).reduce((s,l)=>s+l.avg_rt,0)
+       / active.filter(l=>l.avg_rt>0).length).toFixed(1)
+    : '—'
+
+  document.getElementById('perf-stats').innerHTML = [
+    {val:avg_acc+'%',          lbl:'Avg Lesson Accuracy',  c:'var(--green)'},
+    {val:`${mastered}/${_perf.length}`, lbl:'Lessons Mastered', c:'var(--purple-lt)'},
+    {val:improving,            lbl:'Improving This Week',  c:'var(--cyan)'},
+    {val:struggling,           lbl:'Need Attention',       c:'var(--red)'},
+    {val:avg_rt+'s',           lbl:'Avg Response Time',    c:'var(--orange)'},
+  ].map(it=>`
+    <div class="stat-card" style="--accent-color:${it.c}">
+      <div class="stat-val">${it.val}</div>
+      <div class="stat-lbl">${it.lbl}</div>
+    </div>`).join('')
+}
+
+let _sortKey = 'name'
+function sortTable() {
+  _sortKey = document.getElementById('sort-select').value
+  renderPerfTable()
+}
+
+function renderPerfTable() {
+  const sorted = [..._perf].sort((a,b)=>{
+    if(_sortKey==='accuracy')   return b.accuracy_pct - a.accuracy_pct
+    if(_sortKey==='attempts')   return b.attempts - a.attempts
+    if(_sortKey==='rt')         return (a.avg_rt||99)-(b.avg_rt||99)
+    if(_sortKey==='improvement')return (b.improvement||0)-(a.improvement||0)
+    return a.name.localeCompare(b.name)
+  })
+
+  document.getElementById('perf-body').innerHTML = sorted.map(l=>{
+    const pct    = l.accuracy_pct
+    const bcls   = pct>=80?'bar-green':pct>=50?'bar-amber':'bar-red'
+    const wow    = l.wow!=null ? `<span style="color:${l.wow>=0?'var(--green)':'var(--red)'}">
+                   ${l.wow>=0?'+':''}${l.wow}%</span>` : '<span class="text-muted">—</span>'
+    const rt_t   = l.rt_trend!=null
+      ? `<span style="color:${l.rt_trend<=-0.5?'var(--green)':l.rt_trend>=1?'var(--red)':'var(--muted)'}">
+         ${l.rt_trend>0?'↑':'↓'}${Math.abs(l.rt_trend)}s</span>` : '—'
+    const target = l.target
+      ? `<div class="bar-track" style="width:60px;display:inline-block">
+           <div class="bar-fill ${pct>=l.target?'bar-green':'bar-amber'}"
+                style="width:${Math.min(100,Math.round(pct/l.target*100))}%"></div>
+         </div> ${l.target}%`
+      : '<span class="text-muted">—</span>'
+    return `
+    <tr class="clickable" onclick="openDrill('${l.id}','${l.name}')">
+      <td>
+        <span class="fw-bold">${l.name}</span>
+        ${l.on_focus?'<span class="pill pill-medium" style="margin-left:6px">Focus</span>':''}
+        ${l.note?`<span title="${l.note}" style="cursor:help;color:var(--muted)"> 📝</span>`:''}
+      </td>
+      <td>${pill(l.status)}</td>
+      <td>
+        <span style="font-weight:700;color:${pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)'}">
+          ${pct}%
+        </span>
+        <div class="bar-track" style="width:70px;margin-top:4px">
+          <div class="bar-fill ${bcls}" style="width:${pct}%"></div>
+        </div>
+      </td>
+      <td>${l.acc_7d!=null ? l.acc_7d+'%' : '<span class="text-muted">—</span>'}</td>
+      <td>${wow}</td>
+      <td>${l.attempts}</td>
+      <td><span class="text-amber fw-bold">${l.best_streak}</span></td>
+      <td>${l.avg_rt>0 ? l.avg_rt+'s' : '—'}</td>
+      <td>${rt_t}</td>
+      <td><span style="color:${l.retry_rate>30?'var(--red)':'var(--muted)'}">
+          ${l.retry_rate}%</span></td>
+      <td>${l.fa_rate_pct>0?l.fa_rate_pct+'%':'—'}</td>
+      <td style="text-align:center">${l.on_focus?'✓':''}</td>
+      <td>${target}</td>
+    </tr>`
+  }).join('')
+}
+
+function renderAccBar() {
+  const labels = _perf.map(l=>l.name)
+  const vals   = _perf.map(l=>l.accuracy_pct)
+  const colors = vals.map(v=>v>=80?'rgba(50,220,100,.8)':v>=50?'rgba(255,212,40,.8)':'rgba(255,79,79,.7)')
+  if(_accBar) _accBar.destroy()
+  _accBar = new Chart(document.getElementById('acc-bar-chart'),{
+    type:'bar',
+    data:{labels, datasets:[{data:vals, backgroundColor:colors, borderRadius:6}]},
+    options:{...yPct({...CD, plugins:{...CD.plugins, tooltip:{...CD.plugins.tooltip,
+      callbacks:{label:ctx=>ctx.parsed.y+'%'}}}})}
+  })
+}
+
+function renderRtBar() {
+  const lessons = _perf.filter(l=>l.avg_rt>0)
+  const labels  = lessons.map(l=>l.name)
+  const vals    = lessons.map(l=>l.avg_rt)
+  const colors  = vals.map(v=>v<4?'rgba(50,220,100,.8)':v<7?'rgba(255,212,40,.8)':'rgba(255,79,79,.7)')
+  if(_rtBar) _rtBar.destroy()
+  _rtBar = new Chart(document.getElementById('rt-bar-chart'),{
+    type:'bar',
+    data:{labels, datasets:[{data:vals, backgroundColor:colors, borderRadius:6}]},
+    options:{...ySeconds({...CD, plugins:{...CD.plugins, tooltip:{...CD.plugins.tooltip,
+      callbacks:{label:ctx=>ctx.parsed.y+'s'}}}})}
+  })
+}
+
+function renderWow() {
+  const lessons = _perf.filter(l=>l.wow!=null)
+  const labels  = lessons.map(l=>l.name)
+  const vals    = lessons.map(l=>l.wow)
+  const colors  = vals.map(v=>v>=0?'rgba(50,220,100,.75)':'rgba(255,79,79,.7)')
+  if(_wowChart) _wowChart.destroy()
+  _wowChart = new Chart(document.getElementById('wow-chart'),{
+    type:'bar',
+    data:{labels, datasets:[{data:vals, backgroundColor:colors, borderRadius:4}]},
+    options:{...CD,
+      scales:{
+        x:{...CD.scales.x, ticks:{...CD.scales.x.ticks, maxRotation:30}},
+        y:{...CD.scales.y, ticks:{...CD.scales.y.ticks, callback:v=>(v>=0?'+':'')+v+'%'}}
+      },
+      plugins:{...CD.plugins, tooltip:{...CD.plugins.tooltip,
+        callbacks:{label:ctx=>(ctx.parsed.y>=0?'+':'')+ctx.parsed.y+'%'}}}
+    }
+  })
+}
+
+// ══ TAB 2: RESPONSE ANALYSIS ═════════════════════════════════
+
+function renderRtTab() {
+  const lessons = LESSONS.filter(l=>_rtData[l])
+  const labels  = lessons.map(l=>SHORT[l])
+
+  // Stacked distribution
+  const b3   = lessons.map(l=>_rtData[l].buckets['<3s'])
+  const b36  = lessons.map(l=>_rtData[l].buckets['3-6s'])
+  const b610 = lessons.map(l=>_rtData[l].buckets['6-10s'])
+  const b10  = lessons.map(l=>_rtData[l].buckets['>10s'])
+
+  if(_rtStack) _rtStack.destroy()
+  _rtStack = new Chart(document.getElementById('rt-stack-chart'),{
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'<3s',   data:b3,   backgroundColor:'rgba(50,220,100,.8)', borderRadius:0},
+      {label:'3-6s',  data:b36,  backgroundColor:'rgba(255,212,40,.8)'},
+      {label:'6-10s', data:b610, backgroundColor:'rgba(255,144,80,.8)'},
+      {label:'>10s',  data:b10,  backgroundColor:'rgba(255,79,79,.8)'},
+    ]},
+    options:{...CD, scales:{...CD.scales,
+      x:{...CD.scales.x, stacked:true, ticks:{...CD.scales.x.ticks, maxRotation:30}},
+      y:{...CD.scales.y, stacked:true, ticks:{...CD.scales.y.ticks}}},
+      plugins:{...CD.plugins,
+        legend:{display:true, labels:{color:'#7a72aa',font:{size:10,family:'Nunito'},padding:12}}}}
+  })
+
+  // Median + P90
+  const medians = lessons.map(l=>_rtData[l].median)
+  const p90s    = lessons.map(l=>_rtData[l].p90)
+  if(_rtP90) _rtP90.destroy()
+  _rtP90 = new Chart(document.getElementById('rt-p90-chart'),{
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Median', data:medians, backgroundColor:'rgba(60,180,255,.75)', borderRadius:4},
+      {label:'P90',    data:p90s,    backgroundColor:'rgba(255,110,180,.7)', borderRadius:4},
+    ]},
+    options:{...ySeconds({...CD, plugins:{...CD.plugins,
+      legend:{display:true, labels:{color:'#7a72aa',font:{size:10,family:'Nunito'},padding:12}}}}),
+      scales:{...ySeconds(CD).scales, x:{...CD.scales.x, ticks:{...CD.scales.x.ticks, maxRotation:30}}}}
+  })
+
+  // Table
+  document.getElementById('rt-body').innerHTML = lessons.map(l=>{
+    const d = _rtData[l]
+    const total = d.count
+    const pct = v => total ? Math.round(v/total*100)+'%' : '—'
+    const interp = d.median < 4 ? '✓ Confident'
+                 : d.median < 7 ? '◔ Moderate'
+                 : '⚠ Struggling'
+    const iCol   = d.median < 4 ? 'var(--green)'
+                 : d.median < 7 ? 'var(--amber)'
+                 : 'var(--red)'
+    return `<tr>
+      <td class="fw-bold">${SHORT[l]}</td>
+      <td>${total}</td>
+      <td style="color:var(--green)">${d.buckets['<3s']} (${pct(d.buckets['<3s'])})</td>
+      <td style="color:var(--amber)">${d.buckets['3-6s']} (${pct(d.buckets['3-6s'])})</td>
+      <td style="color:var(--orange)">${d.buckets['6-10s']} (${pct(d.buckets['6-10s'])})</td>
+      <td style="color:var(--red)">${d.buckets['>10s']} (${pct(d.buckets['>10s'])})</td>
+      <td>${d.median.toFixed(1)}s</td>
+      <td>${d.p90.toFixed(1)}s</td>
+      <td style="color:${iCol};font-weight:700">${interp}</td>
+    </tr>`
+  }).join('')
+}
+
+// ══ TAB 3: LETTERS ═══════════════════════════════════════════
+
+function renderLettersTab() {
+  // Grid
+  document.getElementById('teacher-letter-grid').innerHTML = _letters.map(l=>{
+    const star  = l.status==='mastered'?'<span class="lt-star">★</span>':''
+    const stage = l.stage>0?`<span class="lt-stage">S${l.stage}</span>`:''
+    return `<div class="lt ${l.status}" title="${l.letter}: Stage ${l.stage}">${l.letter}${star}${stage}</div>`
+  }).join('')
+
+  // Stage distribution chart
+  const stageCounts = [0,1,2,3,4,5].map(s=>_letters.filter(l=>l.stage===s).length)
+  const stageLabels = ['Not started','Stage 1','Stage 2','Stage 3','Stage 4','Mastered (S5)']
+  if(_stageChart) _stageChart.destroy()
+  _stageChart = new Chart(document.getElementById('letter-stage-chart'),{
+    type:'doughnut',
+    data:{labels:stageLabels, datasets:[{data:stageCounts,
+      backgroundColor:['#1a1430','#1b3070','#1a68c0','#20a8d0','#3cb4ff','#32dc64'],
+      borderColor:'#1c1836', borderWidth:2}]},
+    options:{responsive:true, maintainAspectRatio:true, cutout:'55%',
+      plugins:{
+        legend:{display:true, position:'right',
+          labels:{color:'#7a72aa',font:{size:10,family:'Nunito'},padding:8}},
+        tooltip:{...CD.plugins.tooltip,
+          callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} letters`}}
+      }
+    }
+  })
+
+  const mastered = _letters.filter(l=>l.status==='mastered').length
+  const started  = _letters.filter(l=>l.status==='started').length
+  document.getElementById('letter-stats').innerHTML = `
+    <span style="color:var(--green)">✓ ${mastered} mastered</span>
+    <span style="color:var(--blue)">◔ ${started} started</span>
+    <span style="color:var(--muted2)">○ ${26-mastered-started} not started</span>`
+
+  // Table
+  document.getElementById('letter-body').innerHTML = _letters.map(l=>{
+    const acc = l.avg_acc != null ? l.avg_acc+'%' : '—'
+    return `<tr>
+      <td class="fw-bold" style="font-size:1.1rem">${l.letter}</td>
+      <td>${pill(l.status)}</td>
+      <td>${l.stage>0?'Stage '+l.stage:'—'}</td>
+      <td>${l.attempts}</td>
+      <td style="color:${l.avg_acc>=80?'var(--green)':l.avg_acc>=50?'var(--amber)':'var(--muted)'}">
+        ${acc}</td>
+      <td class="text-muted" style="font-size:.8rem">
+        ${l.status==='untouched'?'Not practised yet':l.stage>=5?'Mastered — keep reviewing':'Working through stages'}
+      </td>
+    </tr>`
+  }).join('')
+}
+
+// ══ TAB 4: CURRICULUM ════════════════════════════════════════
+
+function renderCurriculumTab() {
+  const targets = _curriculum.targets || {}
+  const focus   = _curriculum.focus   || []
+  const notes   = _curriculum.notes   || {}
+
+  document.getElementById('target-form').innerHTML = LESSONS.map(l=>`
+    <div class="flex-between" style="margin-bottom:10px">
+      <label style="font-size:.88rem;font-weight:600;min-width:160px">${SHORT[l]}</label>
+      <input class="form-control" type="number" min="50" max="100"
+             id="tgt-${l}" value="${targets[l]||''}" placeholder="e.g. 80"
+             style="width:100px;padding:7px 12px" />
+    </div>`).join('')
+
+  document.getElementById('focus-form').innerHTML = LESSONS.map(l=>`
+    <label class="form-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:8px">
+      <input type="checkbox" id="foc-${l}" ${focus.includes(l)?'checked':''} style="width:16px;height:16px">
+      ${SHORT[l]}
+    </label>`).join('')
+
+  document.getElementById('notes-form').innerHTML = LESSONS.map(l=>`
+    <div class="form-group">
+      <label class="form-label">${SHORT[l]}</label>
+      <input class="form-control" id="note-${l}" value="${notes[l]||''}"
+             placeholder="Add a note about this lesson…" />
+    </div>`).join('')
+
+  // Progress vs targets chart
+  const withTargets = _perf.filter(l=>targets[l.id])
+  if(withTargets.length) {
+    const labels   = withTargets.map(l=>l.name)
+    const current  = withTargets.map(l=>l.accuracy_pct)
+    const tgtVals  = withTargets.map(l=>targets[l.id])
+    if(_targetChart) _targetChart.destroy()
+    _targetChart = new Chart(document.getElementById('target-chart'),{
+      type:'bar',
+      data:{labels, datasets:[
+        {label:'Current', data:current,
+         backgroundColor:'rgba(130,80,255,.7)', borderRadius:6},
+        {label:'Target',  data:tgtVals,
+         type:'line', borderColor:'rgba(50,220,100,.8)', borderDash:[6,4],
+         pointRadius:4, borderWidth:2, fill:false, tension:0},
+      ]},
+      options:{...yPct({...CD,plugins:{...CD.plugins,
+        legend:{display:true,labels:{color:'#7a72aa',font:{size:10,family:'Nunito'},padding:12}}}})}
+    })
+  }
+}
+
+async function saveTargets() {
+  const targets = {}
+  LESSONS.forEach(l=>{
+    const v = parseInt(document.getElementById(`tgt-${l}`).value)
+    if(v>=50 && v<=100) targets[l] = v
+  })
+  await fetch('/api/curriculum',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({targets})})
+  _curriculum.targets = targets
+  renderCurriculumTab()
+  document.getElementById('target-msg').innerHTML='<span class="text-green">✓ Targets saved</span>'
+  setTimeout(()=>document.getElementById('target-msg').innerHTML='', 1500)
+}
+
+async function saveFocus() {
+  const focus = LESSONS.filter(l=>document.getElementById(`foc-${l}`).checked)
+  await fetch('/api/curriculum',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({focus})})
+  _curriculum.focus = focus
+  renderPerfTable()
+  document.getElementById('focus-msg').innerHTML='<span class="text-green">✓ Focus saved</span>'
+  setTimeout(()=>document.getElementById('focus-msg').innerHTML='', 1500)
+}
+
+async function saveNotes() {
+  const notes = {}
+  LESSONS.forEach(l=>{
+    const v = document.getElementById(`note-${l}`).value.trim()
+    if(v) notes[l] = v
+  })
+  await fetch('/api/curriculum',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({notes})})
+  _curriculum.notes = notes
+  renderPerfTable()
+  document.getElementById('notes-msg').innerHTML='<span class="text-green">✓ Notes saved</span>'
+  setTimeout(()=>document.getElementById('notes-msg').innerHTML='', 1500)
+}
+
+// ══ TAB 5: EXERCISES ═════════════════════════════════════════
+
+function populateExLessons() {
+  const opts = LESSONS.map(l=>`<option value="${l}">${SHORT[l]}</option>`).join('')
+  document.getElementById('ex-lesson').innerHTML   = '<option value="">— choose —</option>' + opts
+  document.getElementById('ex-filter').innerHTML   = '<option value="">All lessons</option>' + opts
+}
+
+async function loadExercises() {
+  const r = await fetch('/api/custom-exercises')
+  _exercises = await r.json()
+  renderExercises()
+}
+
+function renderExercises() {
+  const filter = document.getElementById('ex-filter').value
+  const total  = Object.values(_exercises).flat().length
+  document.getElementById('ex-count').textContent = `${total} total`
+  const lessons = filter ? [filter] : LESSONS
+  const rows    = []
+  lessons.forEach(lid=>{
+    const exs = _exercises[lid] || []
+    exs.forEach(ex=>{
+      rows.push(`
+        <div style="padding:12px;border-bottom:1px solid var(--border)">
+          <div class="flex-between">
+            <div>
+              <span class="pill pill-${ex.difficulty}" style="margin-right:8px">${ex.difficulty}</span>
+              <span style="font-size:.8rem;color:var(--muted)">${SHORT[lid]}</span>
+            </div>
+            <button onclick="deleteExercise('${ex.id}')"
+                    style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.85rem">
+              🗑 Delete
+            </button>
+          </div>
+          <p style="font-weight:700;margin:6px 0 4px;font-size:.9rem">${ex.question}</p>
+          <p style="font-size:.8rem;color:var(--muted)">
+            Options: ${ex.options.join(' · ')} &nbsp;|&nbsp;
+            Answer: <span style="color:var(--green)">${ex.correct}</span>
+            ${ex.note?`&nbsp;|&nbsp; Note: ${ex.note}`:''}
+          </p>
+          <p style="font-size:.72rem;color:var(--muted2)">Added ${ex.created}</p>
+        </div>`)
+    })
+  })
+  document.getElementById('ex-list').innerHTML =
+    rows.length ? rows.join('') : '<p class="empty">No exercises yet</p>'
+}
+
+async function addExercise() {
+  const errEl = document.getElementById('ex-error')
+  errEl.style.display = 'none'
+  const options = document.getElementById('ex-options').value
+    .split('\n').map(s=>s.trim()).filter(Boolean)
+  const body = {
+    lesson_id:  document.getElementById('ex-lesson').value,
+    question:   document.getElementById('ex-question').value.trim(),
+    options,
+    correct:    document.getElementById('ex-correct').value.trim(),
+    difficulty: document.getElementById('ex-difficulty').value,
+    note:       document.getElementById('ex-note').value.trim(),
+  }
+  const r = await fetch('/api/custom-exercises',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  })
+  const d = await r.json()
+  if(!r.ok || d.error) {
+    errEl.textContent = d.error || 'Error adding exercise'
+    errEl.style.display = 'flex'; return
+  }
+  // Clear form
+  ;['ex-lesson','ex-question','ex-options','ex-correct','ex-note'].forEach(id=>{
+    document.getElementById(id).value=''
+  })
+  document.getElementById('ex-msg').innerHTML='<span class="text-green">✓ Exercise added</span>'
+  setTimeout(()=>document.getElementById('ex-msg').innerHTML='', 1500)
+  loadExercises()
+}
+
+async function deleteExercise(id) {
+  if(!confirm('Delete this exercise?')) return
+  await fetch(`/api/custom-exercises/${id}`,{method:'DELETE'})
+  loadExercises()
+}
+
+// ══ DRILL MODAL ══════════════════════════════════════════════
+
+async function openDrill(id, name) {
+  _currentDrillId = id
+  document.getElementById('drill-title').textContent = name + ' — Drill Down'
+  const l = _perf.find(x=>x.id===id)||{}
+  document.getElementById('drill-meta').innerHTML = [
+    {lbl:'Accuracy',     val:l.accuracy_pct+'%'},
+    {lbl:'7d Accuracy',  val:l.acc_7d!=null?l.acc_7d+'%':'—'},
+    {lbl:'WoW Change',   val:l.wow!=null?(l.wow>=0?'+':'')+l.wow+'%':'—'},
+    {lbl:'Best Streak',  val:'★ '+l.best_streak},
+    {lbl:'Avg RT',       val:l.avg_rt>0?l.avg_rt+'s':'—'},
+    {lbl:'Retry Rate',   val:l.retry_rate+'%'},
+  ].map(x=>`
+    <div style="text-align:center;min-width:75px">
+      <div style="font-size:1.2rem;font-weight:800;color:var(--cyan)">${x.val}</div>
+      <div style="font-size:.7rem;color:var(--muted)">${x.lbl}</div>
+    </div>`).join('')
+
+  // Pre-fill note
+  document.getElementById('drill-note').value = l.note || ''
+  initTabs('drill-tabs')
+  openModal('drill-modal')
+
+  const r = await fetch(`/api/lesson/${id}/charts`)
+  const c = await r.json()
+
+  if(_drillAcc) _drillAcc.destroy()
+  _drillAcc = new Chart(document.getElementById('drill-acc-chart'),{
+    type:'line',
+    data:{labels:c.accuracy_series.map(p=>p.x),
+          datasets:[dataset(c.accuracy_series.map(p=>p.y),C.purple)]},
+    options:yPct(CD)
+  })
+  if(_drillRt) _drillRt.destroy()
+  _drillRt = new Chart(document.getElementById('drill-rt-chart'),{
+    type:'line',
+    data:{labels:c.rt_series.map(p=>p.x),
+          datasets:[dataset(c.rt_series.map(p=>p.y),C.cyan)]},
+    options:ySeconds(CD)
+  })
+}
+
+async function saveDrillNote() {
+  const note = document.getElementById('drill-note').value.trim()
+  await fetch('/api/teacher/note',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({lesson_id:_currentDrillId, note})
+  })
+  const l = _perf.find(x=>x.id===_currentDrillId)
+  if(l) l.note = note
+  renderPerfTable()
+}
+
+// ══ CUSTOM LESSONS ════════════════════════════════════════════
+
+const COLOR_MAP = {
+  purple:'#8250ff', blue:'#3cb4ff', green:'#32dc64',
+  orange:'#ff9050', pink:'#ff6eb4'
+}
+let _customLessons = {}
+let _selectedLessonId = null
+
+async function loadLessons() {
+  const r        = await fetch('/api/custom-lessons')
+  _customLessons = await r.json()
+  renderLessonList()
+  populateImportSrc()
+}
+
+function renderLessonList() {
+  const lessons = Object.values(_customLessons)
+  document.getElementById('cl-count').textContent =
+    `${lessons.length} lesson${lessons.length!==1?'s':''}`
+
+  if (!lessons.length) {
+    document.getElementById('cl-list').innerHTML =
+      '<p class="empty">No custom lessons yet. Create one above.</p>'
+    return
+  }
+
+  document.getElementById('cl-list').innerHTML = lessons.map(l => {
+    const qc    = l.questions.length
+    const ready = qc >= 4
+    const col   = COLOR_MAP[l.color] || COLOR_MAP.purple
+    return `
+    <div style="padding:14px;border-bottom:1px solid var(--border)">
+      <div class="flex-between">
+        <div class="flex-center gap-8">
+          <span style="font-size:1.4rem">${l.emoji}</span>
+          <div>
+            <span class="fw-bold">${l.name}</span>
+            <span class="text-muted" style="font-size:.75rem;margin-left:8px">${l.id}</span>
+          </div>
+        </div>
+        <div class="flex gap-8">
+          ${l.active
+            ? `<span class="pill pill-mastered">🎮 Active</span>
+               <button onclick="deactivateLesson('${l.id}')"
+                 class="btn btn-ghost btn-sm">Deactivate</button>`
+            : `<button onclick="${ready?`activateLesson('${l.id}')`:`alert('Add at least 4 questions first')`}"
+                 class="btn btn-${ready?'outline':'ghost'} btn-sm"
+                 ${ready?'':'disabled'}>
+                 ${ready?'🎮 Activate':'⚠ Need 4+ q'}
+               </button>`}
+          <button onclick="openQuestionBuilder('${l.id}')"
+                  class="btn btn-ghost btn-sm">✏️ Edit</button>
+          <button onclick="deleteLesson('${l.id}')"
+                  style="background:none;border:none;color:var(--red);cursor:pointer">🗑</button>
+        </div>
+      </div>
+      <div class="flex gap-12 mt-8" style="font-size:.78rem;color:var(--muted)">
+        <span style="color:${col}">■ ${l.category}</span>
+        <span>${qc} question${qc!==1?'s':''}</span>
+        ${l.description?`<span>${l.description}</span>`:''}
+        <span>Created ${l.created}</span>
+      </div>
+    </div>`
+  }).join('')
+}
+
+async function createLesson() {
+  const errEl = document.getElementById('cl-error')
+  errEl.style.display = 'none'
+  const body = {
+    id:          document.getElementById('cl-id').value.trim(),
+    name:        document.getElementById('cl-name').value.trim(),
+    emoji:       document.getElementById('cl-emoji').value.trim() || '❓',
+    category:    document.getElementById('cl-category').value,
+    color:       document.getElementById('cl-color').value,
+    description: document.getElementById('cl-desc').value.trim(),
+  }
+  const r = await fetch('/api/custom-lessons',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  })
+  const d = await r.json()
+  if (!r.ok || d.error) {
+    errEl.textContent = d.error; errEl.style.display='flex'; return
+  }
+  ;['cl-id','cl-name','cl-emoji','cl-desc'].forEach(id=>
+    document.getElementById(id).value='')
+  document.getElementById('cl-msg').innerHTML='<span class="text-green">✓ Lesson created</span>'
+  setTimeout(()=>document.getElementById('cl-msg').innerHTML='', 1500)
+  await loadLessons()
+  openQuestionBuilder(body.id.replace(/ /g,'_').toLowerCase())
+}
+
+async function deleteLesson(id) {
+  if (!confirm(`Delete lesson "${_customLessons[id]?.name}"? This cannot be undone.`)) return
+  await fetch(`/api/custom-lessons/${id}`,{method:'DELETE'})
+  if (_selectedLessonId === id) closeQuestionBuilder()
+  await loadLessons()
+}
+
+async function activateLesson(id) {
+  const r = await fetch(`/api/custom-lessons/${id}/activate`,{method:'POST'})
+  const d = await r.json()
+  if (d.error) { alert(d.error); return }
+  await loadLessons()
+}
+
+async function deactivateLesson(id) {
+  await fetch(`/api/custom-lessons/${id}/deactivate`,{method:'POST'})
+  await loadLessons()
+}
+
+// ── Question builder ─────────────────────────────────────────
+function openQuestionBuilder(lessonId) {
+  _selectedLessonId = lessonId
+  const l = _customLessons[lessonId]
+  if (!l) return
+  document.getElementById('cl-selected-name').textContent = l.name
+  document.getElementById('cl-question-card').style.display = 'block'
+  renderQuestions()
+  document.getElementById('cl-question-card').scrollIntoView({behavior:'smooth'})
+}
+
+function closeQuestionBuilder() {
+  _selectedLessonId = null
+  document.getElementById('cl-question-card').style.display = 'none'
+}
+
+function renderQuestions() {
+  const l  = _customLessons[_selectedLessonId]
+  if (!l) return
+  const qs = l.questions
+  document.getElementById('cq-count').textContent = qs.length
+  const pub = document.getElementById('cq-publish')
+  pub.disabled = qs.length < 4
+  pub.textContent = qs.length < 4
+    ? `⚠ Need ${4-qs.length} more`
+    : l.active ? '🎮 Active in Game' : '🎮 Activate in Game'
+
+  if (!qs.length) {
+    document.getElementById('cq-list').innerHTML='<p class="empty">No questions yet</p>'
+    return
+  }
+  document.getElementById('cq-list').innerHTML = qs.map((q,i)=>`
+    <div style="padding:10px;border-bottom:1px solid var(--border)">
+      <div class="flex-between">
+        <span class="pill pill-${q.difficulty}">${q.difficulty}</span>
+        <button onclick="deleteQuestion('${q.id}')"
+                style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.8rem">
+          🗑 Remove
+        </button>
+      </div>
+      <p style="font-weight:700;margin:5px 0 3px;font-size:.88rem">${i+1}. ${q.question}</p>
+      <p style="font-size:.78rem;color:var(--muted)">
+        ${q.options.map(o=>`<span style="color:${o===q.correct?'var(--green)':'var(--muted)'};
+          ${o===q.correct?'font-weight:700':''}">
+          ${o===q.correct?'✓ ':''}${o}
+        </span>`).join(' &nbsp;·&nbsp; ')}
+      </p>
+      ${q.hint?`<p style="font-size:.72rem;color:var(--muted2)">💡 ${q.hint}</p>`:''}
+    </div>`).join('')
+}
+
+async function addQuestion() {
+  if (!_selectedLessonId) return
+  const errEl  = document.getElementById('cq-error')
+  errEl.style.display = 'none'
+  const options = document.getElementById('cq-options').value
+    .split('\n').map(s=>s.trim()).filter(Boolean)
+  const body = {
+    question:   document.getElementById('cq-question').value.trim(),
+    options,
+    correct:    document.getElementById('cq-correct').value.trim(),
+    difficulty: document.getElementById('cq-difficulty').value,
+    hint:       document.getElementById('cq-hint').value.trim(),
+  }
+  const r = await fetch(
+    `/api/custom-lessons/${_selectedLessonId}/questions`,
+    {method:'POST', headers:{'Content-Type':'application/json'},
+     body:JSON.stringify(body)}
+  )
+  const d = await r.json()
+  if (!r.ok || d.error) {
+    errEl.textContent = d.error; errEl.style.display='block'; return
+  }
+  ;['cq-question','cq-options','cq-correct','cq-hint'].forEach(id=>
+    document.getElementById(id).value='')
+  await loadLessons()
+  renderQuestions()
+}
+
+async function deleteQuestion(qId) {
+  if (!_selectedLessonId) return
+  await fetch(`/api/custom-lessons/${_selectedLessonId}/questions/${qId}`,
+              {method:'DELETE'})
+  await loadLessons()
+  renderQuestions()
+}
+
+async function publishLesson() {
+  if (!_selectedLessonId) return
+  const r = await fetch(`/api/custom-lessons/${_selectedLessonId}/activate`,
+                        {method:'POST'})
+  const d = await r.json()
+  if (d.error) { alert(d.error); return }
+  await loadLessons()
+  renderQuestions()
+}
+
+// ── Import from built-in ─────────────────────────────────────
+function populateImportSrc() {
+  document.getElementById('import-src').innerHTML =
+    '<option value="">— pick lesson —</option>' +
+    LESSONS.map(l=>`<option value="${l}">${SHORT[l]}</option>`).join('')
+}
+
+async function importQuestions() {
+  const src   = document.getElementById('import-src').value
+  const count = document.getElementById('import-count').value
+  if (!src || !_selectedLessonId) {
+    document.getElementById('import-msg').textContent='Pick a source lesson first'
+    return
+  }
+  const r = await fetch('/api/custom-lessons/import-questions',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      target_lesson_id: _selectedLessonId,
+      source_lesson_id: src,
+      count
+    })
+  })
+  const d = await r.json()
+  document.getElementById('import-msg').textContent =
+    d.ok ? `✓ Imported ${d.imported} questions` : d.error
+  if (d.ok) { await loadLessons(); renderQuestions() }
+}
+
+// ── Preview ──────────────────────────────────────────────────
+function previewLesson() {
+  const l = _customLessons[_selectedLessonId]
+  if (!l) return
+  document.getElementById('preview-title').textContent = `${l.emoji} ${l.name}`
+  document.getElementById('preview-questions').innerHTML = l.questions.map((q,i)=>`
+    <div style="margin-bottom:20px;padding:14px;background:var(--card2);border-radius:10px">
+      <p style="font-weight:700;margin-bottom:12px">${i+1}. ${q.question}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${q.options.map(o=>`
+          <div style="padding:10px;border-radius:8px;text-align:center;font-weight:700;
+                      background:${o===q.correct?'rgba(50,220,100,.15)':'var(--card)'};
+                      border:1px solid ${o===q.correct?'var(--green)':'var(--border)'}">
+            ${o} ${o===q.correct?'✓':''}
+          </div>`).join('')}
+      </div>
+      ${q.hint?`<p style="margin-top:8px;font-size:.78rem;color:var(--muted)">💡 Hint: ${q.hint}</p>`:''}
+    </div>`).join('')
+  openModal('preview-modal')
+}
+
+// ══ INIT ════════════════════════════════════════════════════
+// Use DOMContentLoaded to ensure tabs are init'd after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  initTabs('main-tabs')
+  initTabs('drill-tabs')
+})
+load()
+loadLessons()
+setInterval(load, 30000)
+</script>
+{% endblock %}

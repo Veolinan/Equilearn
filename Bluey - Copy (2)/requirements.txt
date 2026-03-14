@@ -1,0 +1,6 @@
+pygame>=2.5.0
+mediapipe>=0.10.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+flask>=3.0.0
+gtts>=2.5.0

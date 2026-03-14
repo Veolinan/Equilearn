@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+<div class="role-page">
+  <div class="role-logo">🎓 <span>Touchless</span> Tutor</div>
+  <p class="role-sub">Choose your dashboard to get started</p>
+
+  <div class="role-grid">
+
+    <a href="/parent" class="role-card" style="--accent:var(--green)">
+      <div class="role-icon">👨‍👩‍👧</div>
+      <div class="role-name">Parent / Guardian</div>
+      <div class="role-desc">
+        Track your child's daily progress, celebrate milestones,
+        view learning trends, and print reports for therapists.
+      </div>
+    </a>
+
+    <a href="/teacher" class="role-card" style="--accent:var(--blue)">
+      <div class="role-icon">👩‍🏫</div>
+      <div class="role-name">Teacher</div>
+      <div class="role-desc">
+        Analyse lesson performance, build custom exercises,
+        set curriculum targets, and export data for school records.
+      </div>
+    </a>
+
+    <a href="/technical" class="role-card" style="--accent:var(--purple-lt)">
+      <div class="role-icon">⚙️</div>
+      <div class="role-name">Technical</div>
+      <div class="role-desc">
+        System health, data collected, performance metrics,
+        backup / restore, and reset controls.
+      </div>
+    </a>
+
+  </div>
+
+  <p class="text-muted mt-16" style="font-size:.82rem">
+    🔒 &nbsp;Local only — accessible only on this network. No data leaves your device.
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{
+  "name": "Amara",
+  "age": "8",
+  "goals": {},
+  "notifications": {
+    "inactive_days": 4,
+    "milestone": false,
+    "streak": false
+  }
+}

@@ -1,0 +1,6 @@
+venv/
+progress.json
+__pycache__/
+*.pyc
+generate_demo.py
+

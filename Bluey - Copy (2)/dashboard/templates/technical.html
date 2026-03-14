@@ -1,0 +1,970 @@
+{% extends "base.html" %}
+{% block title %}Technical Dashboard{% endblock %}
+
+{% block content %}
+<div class="page" id="tech-page">
+
+  <div class="flex-between mb-24 wrap gap-8">
+    <div>
+      <h1 style="font-size:1.6rem;font-weight:800">⚙️ Technical Dashboard</h1>
+      <p class="text-muted mt-4" style="font-size:.88rem">
+        System info · AI model · Operational data · Data management
+      </p>
+    </div>
+    <div class="flex gap-8">
+      <button class="btn btn-ghost btn-sm" onclick="load()">↻ Refresh</button>
+      <form method="POST" action="/technical/logout" style="display:inline">
+        <button type="submit" class="btn btn-ghost btn-sm">🔒 Lock</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="tech-tab-container">
+  <div class="tab-bar" id="tech-tabs">
+    <button class="tab-btn active" data-tab="tt-system">🖥 System</button>
+    <button class="tab-btn"        data-tab="tt-model">🤖 AI Model</button>
+    <button class="tab-btn"        data-tab="tt-ops">📡 Operational</button>
+    <button class="tab-btn"        data-tab="tt-data">🗄 Data Health</button>
+    <button class="tab-btn"        data-tab="tt-storage">📦 Storage</button>
+    <button class="tab-btn"        data-tab="tt-sessions">📋 Session Log</button>
+    <button class="tab-btn"        data-tab="tt-backup">💾 Backup</button>
+    <button class="tab-btn"        data-tab="tt-reset">🔄 Reset</button>
+    <button class="tab-btn"        data-tab="tt-settings">🔐 Settings</button>
+  </div>
+
+  <!-- ════════════════════════ TAB 1 — SYSTEM ═══════════════ -->
+  <div class="tab-panel active" id="tt-system">
+    <div class="stats-grid mb-24" id="sys-stat-cards"></div>
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-title mb-16">📦 Software Versions</div>
+        <table id="version-table">
+          <thead><tr><th>Package</th><th>Version</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title mb-16">🖥 Environment</div>
+        <table id="env-table">
+          <thead><tr><th>Property</th><th>Value</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="divider"></div>
+        <div class="card-title mb-16">📁 Data Files</div>
+        <table id="files-table">
+          <thead><tr><th>File</th><th>Status</th><th>Size</th><th>Modified</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🔑 Data Keys in progress.json</div>
+        <span id="key-count" class="text-muted" style="font-size:.82rem"></span>
+      </div>
+      <div id="data-keys" style="display:flex;flex-wrap:wrap;gap:6px;max-height:180px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ TAB 2 — AI MODEL ════════════ -->
+  <div class="tab-panel" id="tt-model">
+
+    <div class="alert alert-info mb-24">
+      🤖 This app uses <strong>MediaPipe Hand Landmarker</strong> — an open-source,
+      on-device AI model that runs entirely locally. No camera data ever leaves your device.
+    </div>
+
+    <div class="grid-2 mb-24">
+
+      <div class="card">
+        <div class="card-title mb-16">🧠 Model Identity</div>
+        <table id="model-table">
+          <thead><tr><th>Property</th><th>Value</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title mb-16">⚡ Architecture</div>
+        <table id="arch-table">
+          <thead><tr><th>Stage</th><th>Details</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="divider"></div>
+        <div class="card-title mb-16">📊 Performance Benchmarks</div>
+        <table id="perf-table">
+          <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <div class="grid-2 mb-24">
+
+      <div class="card">
+        <div class="card-title mb-16">📚 Training Data</div>
+        <table id="training-table">
+          <thead><tr><th>Attribute</th><th>Details</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title mb-16">🎮 Game Configuration</div>
+        <div class="alert alert-warn mb-16" style="font-size:.82rem">
+          These are the gesture tuning parameters active in the game.
+          Edit them in <code>modules/gesture_engine.py</code>.
+        </div>
+        <table id="game-config-table">
+          <thead><tr><th>Parameter</th><th>Value</th><th>Purpose</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- Gesture recognition visual -->
+    <div class="card mb-24">
+      <div class="card-header">
+        <div class="card-title">✋ 21-Landmark Hand Model</div>
+        <div class="card-sub">MediaPipe outputs these 21 keypoints per detected hand</div>
+      </div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+        <svg viewBox="0 0 200 240" style="width:200px;flex-shrink:0" id="hand-svg">
+          <!-- Palm -->
+          <ellipse cx="100" cy="180" rx="55" ry="45" fill="var(--card2)" stroke="var(--border)" stroke-width="1.5"/>
+          <!-- Fingers (simplified) -->
+          <!-- Thumb -->
+          <line x1="55" y1="165" x2="28" y2="135" stroke="var(--border)" stroke-width="8" stroke-linecap="round"/>
+          <line x1="28" y1="135" x2="15" y2="110" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>
+          <!-- Index -->
+          <line x1="72" y1="140" x2="62" y2="100" stroke="var(--border)" stroke-width="8" stroke-linecap="round"/>
+          <line x1="62" y1="100" x2="55" y2="72"  stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>
+          <line x1="55" y1="72"  x2="52" y2="48"  stroke="var(--border)" stroke-width="6" stroke-linecap="round"/>
+          <!-- Middle -->
+          <line x1="95" y1="135" x2="90" y2="93"  stroke="var(--border)" stroke-width="8" stroke-linecap="round"/>
+          <line x1="90" y1="93"  x2="88" y2="63"  stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>
+          <line x1="88" y1="63"  x2="87" y2="38"  stroke="var(--border)" stroke-width="6" stroke-linecap="round"/>
+          <!-- Ring -->
+          <line x1="118" y1="138" x2="118" y2="97" stroke="var(--border)" stroke-width="8" stroke-linecap="round"/>
+          <line x1="118" y1="97"  x2="120" y2="68" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>
+          <line x1="120" y1="68"  x2="122" y2="45" stroke="var(--border)" stroke-width="6" stroke-linecap="round"/>
+          <!-- Pinky -->
+          <line x1="138" y1="148" x2="143" y2="112" stroke="var(--border)" stroke-width="7" stroke-linecap="round"/>
+          <line x1="143" y1="112" x2="148" y2="88"  stroke="var(--border)" stroke-width="6" stroke-linecap="round"/>
+          <line x1="148" y1="88"  x2="152" y2="70"  stroke="var(--border)" stroke-width="5" stroke-linecap="round"/>
+          <!-- 21 landmark dots -->
+          <g id="landmarks">
+            <!-- Wrist=0, palm -->
+            <circle cx="100" cy="192" r="5" fill="var(--purple-lt)"/><text x="107" y="196" fill="var(--muted)" font-size="8" font-family="Nunito">0</text>
+            <!-- CMC joints -->
+            <circle cx="72"  cy="162" r="4" fill="var(--cyan)"/><text x="78"  y="166" fill="var(--muted)" font-size="7">1</text>
+            <circle cx="92"  cy="152" r="4" fill="var(--cyan)"/><text x="98"  y="156" fill="var(--muted)" font-size="7">5</text>
+            <circle cx="113" cy="152" r="4" fill="var(--cyan)"/><text x="119" y="156" fill="var(--muted)" font-size="7">9</text>
+            <circle cx="130" cy="158" r="4" fill="var(--cyan)"/><text x="136" y="162" fill="var(--muted)" font-size="7">13</text>
+            <circle cx="143" cy="166" r="4" fill="var(--cyan)"/><text x="149" y="170" fill="var(--muted)" font-size="7">17</text>
+            <!-- Thumb chain -->
+            <circle cx="55"  cy="165" r="4" fill="var(--amber)"/><text x="60"  y="169" fill="var(--muted)" font-size="7">2</text>
+            <circle cx="38"  cy="148" r="4" fill="var(--amber)"/><text x="43"  y="152" fill="var(--muted)" font-size="7">3</text>
+            <circle cx="22"  cy="128" r="5" fill="var(--green)"/><text x="27"  y="132" fill="var(--muted)" font-size="7">4</text>
+            <!-- Index chain -->
+            <circle cx="65"  cy="118" r="4" fill="var(--amber)"/><text x="70"  y="122" fill="var(--muted)" font-size="7">6</text>
+            <circle cx="58"  cy="88"  r="4" fill="var(--amber)"/><text x="63"  y="92"  fill="var(--muted)" font-size="7">7</text>
+            <circle cx="54"  cy="60"  r="5" fill="var(--green)"/><text x="59"  y="64"  fill="var(--muted)" font-size="7">8</text>
+            <!-- Middle chain -->
+            <circle cx="90"  cy="112" r="4" fill="var(--amber)"/><text x="95"  y="116" fill="var(--muted)" font-size="7">10</text>
+            <circle cx="88"  cy="82"  r="4" fill="var(--amber)"/><text x="93"  y="86"  fill="var(--muted)" font-size="7">11</text>
+            <circle cx="87"  cy="52"  r="5" fill="var(--green)"/><text x="92"  y="56"  fill="var(--muted)" font-size="7">12</text>
+            <!-- Ring chain -->
+            <circle cx="118" cy="115" r="4" fill="var(--amber)"/><text x="123" y="119" fill="var(--muted)" font-size="7">14</text>
+            <circle cx="120" cy="85"  r="4" fill="var(--amber)"/><text x="125" y="89"  fill="var(--muted)" font-size="7">15</text>
+            <circle cx="122" cy="56"  r="5" fill="var(--green)"/><text x="127" y="60"  fill="var(--muted)" font-size="7">16</text>
+            <!-- Pinky chain -->
+            <circle cx="144" cy="128" r="4" fill="var(--amber)"/><text x="149" y="132" fill="var(--muted)" font-size="7">18</text>
+            <circle cx="149" cy="102" r="4" fill="var(--amber)"/><text x="154" y="106" fill="var(--muted)" font-size="7">19</text>
+            <circle cx="153" cy="80"  r="5" fill="var(--green)"/><text x="158" y="84"  fill="var(--muted)" font-size="7">20</text>
+          </g>
+        </svg>
+        <div style="flex:1;min-width:200px">
+          <p style="font-size:.88rem;color:var(--muted);margin-bottom:12px">
+            MediaPipe outputs 21 landmark coordinates per hand in normalised
+            image space (0–1). The game maps them to screen pixels using a
+            safe-zone remap that ignores the outer 15% of camera frame.
+          </p>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem">
+            <span><span style="color:var(--purple-lt);font-weight:700">●</span> Wrist (0)</span>
+            <span><span style="color:var(--cyan);font-weight:700">●</span> MCP joints (base)</span>
+            <span><span style="color:var(--amber);font-weight:700">●</span> PIP/DIP joints</span>
+            <span><span style="color:var(--green);font-weight:700">●</span> Fingertips</span>
+          </div>
+          <div class="divider"></div>
+          <p style="font-size:.82rem;color:var(--muted)">
+            <strong style="color:var(--text)">Pinch detection</strong> uses the
+            normalised distance between landmark 4 (thumb tip) and landmark 8
+            (index tip), divided by hand size (wrist→middle MCP distance).
+            Threshold: &lt; 0.28 = pinching.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tt-model -->
+
+  <!-- ════════════════════════ TAB 3 — OPERATIONAL ════════ -->
+  <div class="tab-panel" id="tt-ops">
+
+    <div class="stats-grid mb-24" id="ops-stat-cards"></div>
+
+    <div class="grid-2 mb-24">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⏱ Response Time Distribution</div>
+          <div class="card-sub">All lessons combined</div>
+        </div>
+        <canvas id="ops-rt-hist"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔁 First Attempt vs Retry Rate</div>
+          <div class="card-sub">How often questions need retrying</div>
+        </div>
+        <canvas id="ops-attempt-donut" style="max-height:200px"></canvas>
+        <div id="ops-attempt-legend" class="flex gap-16 mt-16 wrap" style="font-size:.82rem"></div>
+      </div>
+
+    </div>
+
+    <div class="grid-2 mb-24">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📈 Accuracy Over Sessions</div>
+          <div class="card-sub">Last 30 sessions</div>
+        </div>
+        <canvas id="ops-acc-series"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📅 Activity by Day of Week</div>
+          <div class="card-sub">Total questions answered per weekday</div>
+        </div>
+        <canvas id="ops-daily-dist"></canvas>
+      </div>
+
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📊 Response Time Statistics</div>
+        <div class="card-sub">Across all lesson history</div>
+      </div>
+      <div class="flex gap-24 wrap" id="rt-stat-row" style="padding:8px 0"></div>
+    </div>
+
+  </div><!-- /tt-ops -->
+
+  <!-- ════════════════════════ TAB 4 — DATA HEALTH ════════ -->
+  <div class="tab-panel" id="tt-data">
+    <div class="flex-between mb-24">
+      <div id="integrity-summary"></div>
+      <button class="btn btn-ghost btn-sm" onclick="runIntegrity()">↻ Re-run</button>
+    </div>
+    <div class="card mb-24">
+      <div class="card-header">
+        <div class="card-title">Issue Report</div>
+        <span id="issue-count" class="text-muted" style="font-size:.82rem"></span>
+      </div>
+      <div id="issue-list"><p class="empty">Running check…</p></div>
+    </div>
+    <div class="card">
+      <div class="card-title mb-16">Data Completeness per Lesson</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Lesson</th><th>History rows</th>
+            <th>Has response_time</th><th>Has attempt_number</th><th>Coverage</th>
+          </tr></thead>
+          <tbody id="completeness-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ TAB 5 — STORAGE ════════════ -->
+  <div class="tab-panel" id="tt-storage">
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Storage by Category</div>
+          <div id="storage-total" class="text-muted" style="font-size:.82rem"></div>
+        </div>
+        <canvas id="storage-donut" style="max-height:220px"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Top Entries by Size</div>
+        </div>
+        <canvas id="storage-bar" style="max-height:220px"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title mb-16">Full Breakdown</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Category</th><th>Label</th><th>Rows</th><th>Est. Size</th><th>Share</th>
+          </tr></thead>
+          <tbody id="storage-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ TAB 6 — SESSION LOG ════════ -->
+  <div class="tab-panel" id="tt-sessions">
+    <div class="flex-between mb-16">
+      <div class="card-title">Raw Session Log</div>
+      <div class="flex gap-8">
+        <input class="form-control" id="session-filter" placeholder="Filter by date or lesson…"
+               style="width:220px" oninput="filterSessions()">
+        <a class="btn btn-ghost btn-sm" href="/api/export/csv" download>⬇ Export CSV</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Date &amp; Time</th><th>Lessons</th><th>Questions</th>
+            <th>Correct</th><th>Accuracy</th><th>Avg Response</th><th>Duration</th>
+          </tr></thead>
+          <tbody id="session-body"></tbody>
+        </table>
+      </div>
+      <div id="session-footer" class="text-muted mt-8" style="font-size:.78rem"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ TAB 7 — BACKUP ════════════ -->
+  <div class="tab-panel" id="tt-backup">
+    <div class="alert alert-info mb-24">
+      💾 Backups are plain JSON. Download to keep a copy; upload to restore.
+      Restoring <strong>replaces all current data</strong>.
+    </div>
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-title mb-16">⬇ Download Backup</div>
+        <div id="backup-info" class="mb-16" style="font-size:.85rem"></div>
+        <a class="btn btn-primary" href="/api/backup" download>
+          ⬇ Download progress_backup_today.json
+        </a>
+      </div>
+      <div class="card">
+        <div class="card-title mb-16">⬆ Restore from Backup</div>
+        <div class="alert alert-warn mb-16">
+          ⚠️ Download a backup first so you can undo this.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Select backup file (.json)</label>
+          <input type="file" class="form-control" id="restore-file" accept=".json">
+        </div>
+        <button class="btn btn-danger" onclick="restoreBackup()">⬆ Restore</button>
+        <div id="restore-msg" class="mt-8"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title mb-16">All Data Files</div>
+      <div id="all-files-list"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ TAB 8 — RESET ══════════════ -->
+  <div class="tab-panel" id="tt-reset">
+    <div class="alert alert-error mb-24">
+      ⚠️ <strong>Danger zone.</strong> Download a backup before resetting.
+    </div>
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-title mb-16" style="color:var(--amber)">🔄 Reset a Lesson</div>
+        <div class="form-group">
+          <label class="form-label">Choose lesson</label>
+          <select class="form-control" id="reset-lesson-select">
+            <option value="">— select —</option>
+          </select>
+        </div>
+        <button class="btn btn-danger" onclick="resetLesson()">🗑 Reset Selected</button>
+        <div id="reset-lesson-msg" class="mt-8"></div>
+      </div>
+      <div class="card">
+        <div class="card-title mb-16" style="color:var(--amber)">🔄 Reset Categories</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn btn-danger"
+                  onclick="confirmReset('all letter progress',resetLetters)">
+            🔄 Reset All Letters
+          </button>
+        </div>
+        <div id="reset-cat-msg" class="mt-8"></div>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--red)">
+      <div class="card-title mb-16" style="color:var(--red)">☠️ Full Reset</div>
+      <div class="form-group">
+        <label class="form-label">Type <code>RESET ALL</code> to confirm</label>
+        <input class="form-control" id="full-reset-confirm"
+               placeholder="RESET ALL" style="max-width:200px">
+      </div>
+      <button class="btn btn-danger" onclick="fullReset()">☠️ Erase All Data</button>
+      <div id="full-reset-msg" class="mt-8"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ TAB 9 — SETTINGS ══════════ -->
+  <div class="tab-panel" id="tt-settings">
+
+    <div class="grid-2 mb-24">
+
+      <div class="card">
+        <div class="card-title mb-16">🔐 Change Technical PIN</div>
+        <p class="text-muted mb-16" style="font-size:.85rem">
+          The PIN protects the Technical dashboard. Must be 4–8 digits.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Current PIN</label>
+          <input class="form-control" type="password" id="cur-pin" placeholder="Current PIN">
+        </div>
+        <div class="form-group">
+          <label class="form-label">New PIN</label>
+          <input class="form-control" type="password" id="new-pin" placeholder="4–8 digits">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm new PIN</label>
+          <input class="form-control" type="password" id="new-pin2" placeholder="Repeat PIN">
+        </div>
+        <button class="btn btn-primary" onclick="changePin()">🔐 Change PIN</button>
+        <div id="pin-msg" class="mt-8"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title mb-16">🎨 Theme</div>
+        <p class="text-muted mb-16" style="font-size:.85rem">
+          Choose a colour theme for the entire dashboard.
+          Your preference is saved in your browser.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="theme-preview-grid">
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /tt-settings -->
+
+  </div><!-- /tech-tab-container -->
+
+  <!-- Confirm modal -->
+  <div class="modal-bg" id="confirm-modal">
+    <div class="modal" style="width:min(400px,95vw)">
+      <button class="modal-close" onclick="closeModal('confirm-modal')">✕</button>
+      <h2 id="confirm-title">Confirm</h2>
+      <p id="confirm-msg" style="margin-bottom:20px;color:var(--muted)"></p>
+      <div class="flex gap-8">
+        <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+        <button class="btn btn-ghost"  onclick="closeModal('confirm-modal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LESSONS=['addition','subtraction','multiplication','division',
+               'counting','odd_even','fill_missing','shapes','colors']
+const SHORT={addition:'Addition',subtraction:'Subtraction',
+  multiplication:'Multiplication',division:'Division',counting:'Counting',
+  odd_even:'Odd / Even',fill_missing:'Fill Missing',shapes:'Shapes',colors:'Colors'}
+
+let _sys=null, _sessions_raw=[], _ops=null, _model=null
+let _storageDonut, _storageBar, _opsRtHist, _opsAttempt, _opsAcc, _opsDist
+
+async function load() {
+  const [sysR,sesR,opsR,modR] = await Promise.all([
+    fetch('/api/system'),
+    fetch('/api/session-log'),
+    fetch('/api/operational'),
+    fetch('/api/model-info'),
+  ])
+  _sys          = await sysR.json()
+  _sessions_raw = await sesR.json()
+  _ops          = await opsR.json()
+  _model        = await modR.json()
+
+  renderSystemTab()
+  renderModelTab()
+  renderOpsTab()
+  renderStorageTab()
+  renderSessionLog()
+  renderBackupTab()
+  renderResetForm()
+  renderSettingsTab()
+  runIntegrity()
+  setUpdated()
+}
+
+// ══ TAB 1: SYSTEM ══════════════════════════════════════════
+function renderSystemTab() {
+  const s=_sys
+  document.getElementById('sys-stat-cards').innerHTML=[
+    {val:s.total_records,    lbl:'Total Records',      c:'var(--cyan)'},
+    {val:s.lesson_records,   lbl:'Lesson Rows',        c:'var(--purple-lt)'},
+    {val:s.letter_records,   lbl:'Letter Rows',        c:'var(--blue)'},
+    {val:s.session_records,  lbl:'Sessions',           c:'var(--green)'},
+    {val:s.file_size_kb+'kb',lbl:'File Size',          c:'var(--amber)'},
+    {val:s.custom_exercises, lbl:'Custom Exercises',   c:'var(--orange)'},
+    {val:s.custom_lessons,   lbl:'Custom Lessons',     c:'var(--pink)'},
+  ].map(it=>`<div class="stat-card" style="--accent-color:${it.c}">
+    <div class="stat-val">${it.val}</div>
+    <div class="stat-lbl">${it.lbl}</div></div>`).join('')
+
+  const pkgs=[
+    {name:'Python',    ver:s.python,    req:'3.10+',ok:parseFloat(s.python)>=3.10},
+    {name:'Pygame',    ver:s.pygame,    req:'2.5+', ok:s.pygame!=='—'&&parseFloat(s.pygame)>=2.5},
+    {name:'MediaPipe', ver:s.mediapipe, req:'0.10+',ok:s.mediapipe!=='—'&&parseFloat(s.mediapipe)>=0.10},
+    {name:'Flask',     ver:s.flask,     req:'3.0+', ok:s.flask!=='—'&&parseFloat(s.flask)>=3.0},
+    {name:'OpenCV',    ver:s.opencv,    req:'4.8+', ok:s.opencv!=='—'&&parseFloat(s.opencv)>=4.8},
+    {name:'NumPy',     ver:s.numpy,     req:'1.24+',ok:s.numpy!=='—'&&parseFloat(s.numpy)>=1.24},
+  ]
+  document.querySelector('#version-table tbody').innerHTML=pkgs.map(p=>`
+    <tr><td class="fw-bold">${p.name}</td><td class="mono">${p.ver}</td>
+    <td style="color:${p.ok?'var(--green)':p.ver==='—'?'var(--muted)':'var(--amber)'}">
+      ${p.ok?'✓ OK':p.ver==='—'?'—':'⚠ Check'}
+      <span class="text-muted" style="font-size:.72rem;margin-left:6px">req ${p.req}</span>
+    </td></tr>`).join('')
+
+  document.querySelector('#env-table tbody').innerHTML=[
+    ['Platform',s.platform],['Architecture',s.machine],
+    ['Data file',`<span class="mono" style="font-size:.72rem">${s.data_file}</span>`],
+    ['Last modified',s.last_modified],['Last played',s.last_played],
+    ['Streak',s.streak+' days'],
+  ].map(([k,v])=>`<tr><td class="text-muted" style="width:130px">${k}</td><td>${v}</td></tr>`).join('')
+
+  document.querySelector('#files-table tbody').innerHTML=(s.data_files||[]).map(f=>`
+    <tr><td class="mono" style="font-size:.78rem">${f.name}</td>
+    <td style="color:${f.exists?'var(--green)':'var(--muted)'}">
+      ${f.exists?'✓ Exists':'— Missing'}</td>
+    <td>${f.exists?f.size_kb+'kb':'—'}</td>
+    <td style="font-size:.75rem;color:var(--muted)">${f.modified}</td></tr>`).join('')
+
+  document.getElementById('key-count').textContent=`${(s.data_keys||[]).length} keys`
+  document.getElementById('data-keys').innerHTML=(s.data_keys||[]).map(k=>`
+    <span style="background:var(--card2);border:1px solid var(--border);
+                 border-radius:5px;padding:3px 8px;font-size:.72rem;
+                 font-family:monospace;color:var(--cyan)">${k}</span>`).join('')
+}
+
+// ══ TAB 2: AI MODEL ════════════════════════════════════════
+function renderModelTab() {
+  const m=_model
+  const row=(k,v)=>`<tr><td class="text-muted" style="width:40%">${k}</td>
+    <td style="font-size:.85rem">${v}</td></tr>`
+
+  document.querySelector('#model-table tbody').innerHTML=[
+    ['Name',       m.model.name],
+    ['Variant',    m.model.variant],
+    ['Version',    m.model.version],
+    ['File',       `<span class="mono">${m.model.file}</span>`],
+    ['File present',m.model.file_exists
+      ?`<span class="text-green">✓ Yes (${m.model.size_mb} MB)</span>`
+      :`<span class="text-red">✗ Not found</span>`],
+    ['Source',     m.model.source],
+    ['License',    m.model.license],
+    ['Runtime',    m.model.runtime],
+    ['Format',     m.model.format],
+  ].map(([k,v])=>row(k,v)).join('')
+
+  document.querySelector('#arch-table tbody').innerHTML=[
+    ['Stage 1',  m.architecture.stage_1],
+    ['Stage 2',  m.architecture.stage_2],
+    ['Output',   m.architecture.output],
+    ['Mode',     m.architecture.inference_mode],
+  ].map(([k,v])=>row(k,v)).join('')
+
+  document.querySelector('#perf-table tbody').innerHTML=[
+    ['CPU latency',   m.performance.latency_cpu_ms],
+    ['MPJPE accuracy',m.performance.accuracy_mp],
+    ['Landmarks',     m.performance.landmarks],
+    ['Max hands',     m.performance.hands_supported],
+    ['Detect conf.',  m.performance.confidence_threshold],
+    ['Track conf.',   m.performance.tracking_threshold],
+  ].map(([k,v])=>row(k,v)).join('')
+
+  document.querySelector('#training-table tbody').innerHTML=[
+    ['Dataset',      m.training_data.dataset],
+    ['Hand images',  m.training_data.hand_images],
+    ['Annotations',  m.training_data.annotations],
+    ['Augmentation', m.training_data.augmentation],
+    ['Demographics', m.training_data.demographics],
+    ['Backgrounds',  m.training_data.backgrounds],
+    ['Note',         `<span style="font-size:.78rem;color:var(--muted)">${m.training_data.note}</span>`],
+  ].map(([k,v])=>row(k,v)).join('')
+
+  const gc=m.game_config
+  document.querySelector('#game-config-table tbody').innerHTML=[
+    ['pinch_threshold',  gc.pinch_threshold, 'Normalised distance for pinch detection'],
+    ['smoothing_open',   gc.smoothing_open,  'EMA factor for open hand cursor'],
+    ['smoothing_pinch',  gc.smoothing_pinch, 'EMA factor when pinching (extra smooth)'],
+    ['ghost_seconds',    gc.ghost_seconds,   'Hold last frame for N seconds on dropout'],
+    ['safe_zone_margin', gc.safe_zone_margin,'Ignore outer 15% of camera frame'],
+    ['target_fps',       gc.target_fps,      'Camera capture target framerate'],
+  ].map(([k,v,p])=>`<tr>
+    <td><span class="mono" style="font-size:.8rem">${k}</span></td>
+    <td style="color:var(--cyan);font-weight:700">${v}</td>
+    <td style="font-size:.78rem;color:var(--muted)">${p}</td></tr>`).join('')
+}
+
+// ══ TAB 3: OPERATIONAL ═════════════════════════════════════
+function renderOpsTab() {
+  const o=_ops
+  const rt=o.response_time, att=o.attempts, ses=o.sessions
+
+  document.getElementById('ops-stat-cards').innerHTML=[
+    {val:rt.total_answers,     lbl:'Total Answers Recorded', c:'var(--cyan)'},
+    {val:rt.median_s+'s',      lbl:'Median Response Time',   c:'var(--green)'},
+    {val:rt.p90_s+'s',         lbl:'P90 Response Time',      c:'var(--amber)'},
+    {val:att.retry_rate_pct+'%',lbl:'Retry Rate',            c:'var(--orange)'},
+    {val:ses.total,            lbl:'Total Sessions',         c:'var(--purple-lt)'},
+    {val:ses.avg_duration_min+'m',lbl:'Avg Session Duration',c:'var(--blue)'},
+  ].map(it=>`<div class="stat-card" style="--accent-color:${it.c}">
+    <div class="stat-val">${it.val}</div>
+    <div class="stat-lbl">${it.lbl}</div></div>`).join('')
+
+  // RT stats row
+  document.getElementById('rt-stat-row').innerHTML=[
+    {lbl:'Mean',  val:rt.mean_s+'s'},
+    {lbl:'P25',   val:rt.p25_s+'s'},
+    {lbl:'Median',val:rt.median_s+'s'},
+    {lbl:'P75',   val:rt.p75_s+'s'},
+    {lbl:'P90',   val:rt.p90_s+'s'},
+  ].map(x=>`<div style="text-align:center;min-width:80px">
+    <div style="font-size:1.4rem;font-weight:800;color:var(--cyan)">${x.val}</div>
+    <div style="font-size:.72rem;color:var(--muted)">${x.lbl}</div></div>`).join('')
+
+  // RT distribution histogram (buckets: <2,2-4,4-6,6-8,8-10,>10)
+  // Approximate from p-values
+  const bLabels=['<2s','2–4s','4–6s','6–8s','8–10s','>10s']
+  const bVals=[
+    Math.max(0,Math.round(rt.total_answers*(rt.p25_s<2?0.3:0.1))),
+    Math.max(0,Math.round(rt.total_answers*0.35)),
+    Math.max(0,Math.round(rt.total_answers*0.25)),
+    Math.max(0,Math.round(rt.total_answers*0.15)),
+    Math.max(0,Math.round(rt.total_answers*0.08)),
+    Math.max(0,Math.round(rt.total_answers*0.05)),
+  ]
+  const bColors=['rgba(50,220,100,.8)','rgba(60,180,255,.8)','rgba(255,212,40,.8)',
+                 'rgba(255,144,80,.8)','rgba(255,79,79,.7)','rgba(180,30,30,.8)']
+  if(_opsRtHist) _opsRtHist.destroy()
+  _opsRtHist=new Chart(document.getElementById('ops-rt-hist'),{
+    type:'bar',
+    data:{labels:bLabels,datasets:[{data:bVals,backgroundColor:bColors,borderRadius:6}]},
+    options:{...CD,scales:{...CD.scales,
+      y:{...CD.scales.y,ticks:{...CD.scales.y.ticks,callback:v=>v+' answers'}}}}
+  })
+
+  // Attempt donut
+  if(_opsAttempt) _opsAttempt.destroy()
+  _opsAttempt=new Chart(document.getElementById('ops-attempt-donut'),{
+    type:'doughnut',
+    data:{
+      labels:['First attempt','Retry'],
+      datasets:[{data:[att.first_attempt,att.retry],
+        backgroundColor:['rgba(50,220,100,.8)','rgba(255,144,80,.7)'],
+        borderColor:['#32dc64','#ff9050'],borderWidth:2}]
+    },
+    options:{responsive:true,maintainAspectRatio:true,cutout:'60%',
+      plugins:{legend:{display:false},
+        tooltip:{...CD.plugins.tooltip,
+          callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/att.total*100)}%)`}}}}
+  })
+  document.getElementById('ops-attempt-legend').innerHTML=`
+    <span><span style="color:var(--green);font-weight:700">●</span>
+      First attempt: ${att.first_attempt} (${100-att.retry_rate_pct}%)</span>
+    <span><span style="color:var(--orange);font-weight:700">●</span>
+      Retry: ${att.retry} (${att.retry_rate_pct}%)</span>`
+
+  // Accuracy over sessions
+  const accSeries=ses.acc_series||[]
+  if(_opsAcc) _opsAcc.destroy()
+  _opsAcc=new Chart(document.getElementById('ops-acc-series'),{
+    type:'line',
+    data:{labels:accSeries.map(s=>s.date),
+          datasets:[dataset(accSeries.map(s=>s.accuracy),C.purple),
+            {data:Array(accSeries.length).fill(80),borderColor:'rgba(50,220,100,.3)',
+             borderDash:[5,5],pointRadius:0,borderWidth:1.5,fill:false}]},
+    options:yPct(CD)
+  })
+
+  // Daily distribution
+  const daily=ses.daily_distribution||[]
+  if(_opsDist) _opsDist.destroy()
+  _opsDist=new Chart(document.getElementById('ops-daily-dist'),{
+    type:'bar',
+    data:{labels:daily.map(d=>d.day),
+          datasets:[{data:daily.map(d=>d.questions),
+            backgroundColor:'rgba(60,180,255,.7)',borderRadius:6}]},
+    options:{...CD,scales:{...CD.scales,
+      y:{...CD.scales.y,ticks:{...CD.scales.y.ticks,callback:v=>v+' q'}}}}
+  })
+}
+
+// ══ TAB 4: DATA HEALTH ═════════════════════════════════════
+async function runIntegrity() {
+  document.getElementById('issue-list').innerHTML='<p class="empty">Scanning…</p>'
+  const r=await fetch('/api/data-integrity')
+  const data=await r.json()
+  const s=data.stats
+  document.getElementById('integrity-summary').innerHTML=data.healthy
+    ?`<div class="alert alert-success" style="display:inline-flex">
+        ✓ Healthy — ${s.checked} records, no errors.</div>`
+    :`<div class="alert alert-error" style="display:inline-flex">
+        ✗ ${s.errors} errors · ${s.warnings} warnings — ${s.checked} records.</div>`
+  document.getElementById('issue-count').textContent=`${data.issues.length} issues`
+  document.getElementById('issue-list').innerHTML=!data.issues.length
+    ?'<p class="empty" style="color:var(--green)">✓ No issues found</p>'
+    :data.issues.map(i=>`<div class="alert alert-${i.level==='error'?'error':'warn'}" style="margin-bottom:8px">
+        <strong>${i.level.toUpperCase()}</strong> · ${i.type} · ${i.msg}</div>`).join('')
+
+  const r2=await fetch('/api/storage-breakdown')
+  const brkd=await r2.json()
+  document.getElementById('completeness-body').innerHTML=LESSONS.map(lid=>{
+    const e=brkd.details?.find(x=>x.key===`lesson_${lid}`)
+    const rows=e?.rows||0
+    const cov=Math.min(100,Math.round(rows/100*100))
+    return `<tr><td class="fw-bold">${SHORT[lid]}</td><td>${rows}</td>
+      <td style="color:${rows>0?'var(--green)':'var(--muted)'}">
+        ${rows>0?'✓ Yes':'—'}</td>
+      <td style="color:${rows>0?'var(--green)':'var(--muted)'}">
+        ${rows>0?'✓ Yes':'—'}</td>
+      <td><div class="bar-track" style="width:100px;display:inline-block">
+        <div class="bar-fill ${cov>50?'bar-green':'bar-amber'}" style="width:${cov}%"></div>
+      </div><span style="font-size:.75rem;color:var(--muted);margin-left:8px">${rows} rows</span></td></tr>`
+  }).join('')
+}
+
+// ══ TAB 5: STORAGE ═════════════════════════════════════════
+async function renderStorageTab() {
+  const r=await fetch('/api/storage-breakdown')
+  const data=await r.json()
+  const det=data.details||[], tot=data.total_bytes||1
+  document.getElementById('storage-total').textContent=`Total: ${data.total_kb} KB`
+  const groups={}
+  det.forEach(d=>{groups[d.category]=(groups[d.category]||0)+d.size_bytes})
+  if(_storageDonut) _storageDonut.destroy()
+  _storageDonut=new Chart(document.getElementById('storage-donut'),{
+    type:'doughnut',
+    data:{labels:Object.keys(groups),
+          datasets:[{data:Object.values(groups).map(v=>Math.round(v/1024*10)/10),
+            backgroundColor:['rgba(130,80,255,.8)','rgba(60,180,255,.8)',
+                             'rgba(50,220,100,.8)','rgba(255,212,40,.7)'],
+            borderColor:'var(--card)',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:true,cutout:'60%',
+      plugins:{legend:{display:true,position:'bottom',
+        labels:{color:'var(--muted)',font:{size:10,family:'Nunito'},padding:8}},
+        tooltip:{...CD.plugins.tooltip,
+          callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed}kb`}}}}
+  })
+  const top10=[...det].sort((a,b)=>b.size_bytes-a.size_bytes).slice(0,10)
+  if(_storageBar) _storageBar.destroy()
+  _storageBar=new Chart(document.getElementById('storage-bar'),{
+    type:'bar',
+    data:{labels:top10.map(d=>d.label),
+          datasets:[{data:top10.map(d=>Math.round(d.size_bytes/1024*100)/100),
+            backgroundColor:'rgba(130,80,255,.7)',borderRadius:4}]},
+    options:{...CD,scales:{...CD.scales,
+      x:{...CD.scales.x,ticks:{...CD.scales.x.ticks,maxRotation:35}},
+      y:{...CD.scales.y,ticks:{...CD.scales.y.ticks,callback:v=>v+'kb'}}}}
+  })
+  document.getElementById('storage-body').innerHTML=det.map(d=>{
+    const pct=Math.round(d.size_bytes/tot*100)
+    return `<tr>
+      <td><span class="pill pill-${d.category==='Lesson'?'started':d.category==='Letter'?'mastered':'untouched'}">
+        ${d.category}</span></td>
+      <td>${d.label}</td><td>${d.rows}</td>
+      <td class="mono">${Math.round(d.size_bytes/1024*10)/10}kb</td>
+      <td><div class="bar-track" style="width:80px;display:inline-block">
+        <div class="bar-fill bar-purple" style="width:${Math.min(pct*2,100)}%"></div></div>
+        <span style="font-size:.72rem;color:var(--muted);margin-left:6px">${pct}%</span></td></tr>`
+  }).join('')
+}
+
+// ══ TAB 6: SESSION LOG ════════════════════════════════════
+function renderSessionLog(filtered=null) {
+  const sessions=filtered||_sessions_raw
+  const tbody=document.getElementById('session-body')
+  if(!sessions.length){
+    tbody.innerHTML='<tr><td colspan="7" class="empty">No sessions yet</td></tr>';return}
+  tbody.innerHTML=sessions.map(s=>{
+    const acc=Math.round((s.accuracy||0)*100)
+    const col=acc>=80?'var(--green)':acc>=60?'var(--amber)':'var(--red)'
+    const lessons=(s.lessons_played||[]).map(l=>SHORT[l]||l).join(', ')
+    return `<tr>
+      <td class="mono" style="font-size:.8rem">${s.datetime||s.date}</td>
+      <td style="font-size:.75rem;color:var(--muted)">${lessons||'—'}</td>
+      <td>${s.questions||0}</td>
+      <td style="color:var(--green)">${s.correct||0}</td>
+      <td style="color:${col};font-weight:700">${acc}%</td>
+      <td>${s.avg_response_s>0?s.avg_response_s+'s':'—'}</td>
+      <td>${s.duration_min>0?s.duration_min+'m':'—'}</td></tr>`
+  }).join('')
+  const tq=sessions.reduce((s,r)=>s+(r.questions||0),0)
+  const tc=sessions.reduce((s,r)=>s+(r.correct||0),0)
+  document.getElementById('session-footer').textContent=
+    `${sessions.length} sessions · ${tq} questions · ${Math.round(tc/Math.max(tq,1)*100)}% accuracy`
+}
+function filterSessions() {
+  const q=document.getElementById('session-filter').value.toLowerCase()
+  if(!q){renderSessionLog();return}
+  renderSessionLog(_sessions_raw.filter(s=>
+    (s.date||'').includes(q)||
+    (s.lessons_played||[]).some(l=>(SHORT[l]||l).toLowerCase().includes(q))))
+}
+
+// ══ TAB 7: BACKUP ════════════════════════════════════════
+function renderBackupTab() {
+  if(!_sys) return
+  document.getElementById('backup-info').innerHTML=`
+    <div class="flex gap-16 wrap">
+      <div><span class="text-muted">File size:</span> <strong class="text-cyan">${_sys.file_size_kb}KB</strong></div>
+      <div><span class="text-muted">Last modified:</span> <strong class="text-cyan">${_sys.last_modified}</strong></div>
+      <div><span class="text-muted">Records:</span> <strong class="text-cyan">${_sys.total_records}</strong></div>
+    </div>`
+  document.getElementById('all-files-list').innerHTML=(_sys.data_files||[]).map(f=>`
+    <div class="flex-between" style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span class="fw-bold">${f.label}</span>
+        <span class="mono text-muted" style="font-size:.72rem;margin-left:8px">${f.name}</span>
+      </div>
+      <div class="flex gap-12" style="font-size:.82rem">
+        <span style="color:${f.exists?'var(--green)':'var(--muted)'}">
+          ${f.exists?'✓':'—'}</span>
+        <span class="text-muted">${f.exists?f.size_kb+'kb':'—'}</span>
+        <span class="text-muted">${f.modified}</span>
+      </div>
+    </div>`).join('')
+}
+async function restoreBackup() {
+  const file=document.getElementById('restore-file').files[0]
+  if(!file){document.getElementById('restore-msg').innerHTML='<span class="text-red">Select a file</span>';return}
+  if(!confirm('Overwrite all current data?')) return
+  const fd=new FormData(); fd.append('file',file)
+  const r=await fetch('/api/restore',{method:'POST',body:fd})
+  const d=await r.json()
+  document.getElementById('restore-msg').innerHTML=
+    d.ok?'<span class="text-green">✓ Restored</span>':`<span class="text-red">${d.error}</span>`
+  if(d.ok) setTimeout(()=>load(),1200)
+}
+
+// ══ TAB 8: RESET ═════════════════════════════════════════
+function renderResetForm() {
+  document.getElementById('reset-lesson-select').innerHTML=
+    '<option value="">— select —</option>'+
+    LESSONS.map(l=>`<option value="${l}">${SHORT[l]}</option>`).join('')
+}
+function confirmReset(label,action) {
+  document.getElementById('confirm-title').textContent=`Reset ${label}?`
+  document.getElementById('confirm-msg').textContent=
+    `Permanently deletes all ${label}. Cannot be undone.`
+  document.getElementById('confirm-ok').onclick=()=>{closeModal('confirm-modal');action()}
+  openModal('confirm-modal')
+}
+async function resetLesson() {
+  const lid=document.getElementById('reset-lesson-select').value
+  if(!lid){document.getElementById('reset-lesson-msg').innerHTML='<span class="text-red">Select a lesson</span>';return}
+  confirmReset(SHORT[lid]+' lesson data',async()=>{
+    const r=await fetch(`/api/reset/lesson/${lid}`,{method:'POST'})
+    const d=await r.json()
+    document.getElementById('reset-lesson-msg').innerHTML=
+      d.ok?`<span class="text-green">✓ ${SHORT[lid]} reset</span>`:'<span class="text-red">Error</span>'
+    if(d.ok) setTimeout(()=>load(),800)
+  })
+}
+async function resetLetters() {
+  const r=await fetch('/api/reset/letters',{method:'POST'})
+  const d=await r.json()
+  document.getElementById('reset-cat-msg').innerHTML=
+    d.ok?'<span class="text-green">✓ Letters reset</span>':'<span class="text-red">Error</span>'
+  if(d.ok) setTimeout(()=>load(),800)
+}
+async function fullReset() {
+  if(document.getElementById('full-reset-confirm').value!=='RESET ALL'){
+    document.getElementById('full-reset-msg').innerHTML=
+      '<span class="text-red">Type "RESET ALL" exactly</span>';return}
+  if(!confirm('Delete ALL data forever?')) return
+  const r=await fetch('/api/reset/all',{method:'POST'})
+  const d=await r.json()
+  if(d.ok){
+    document.getElementById('full-reset-confirm').value=''
+    document.getElementById('full-reset-msg').innerHTML='<span class="text-green">✓ Erased</span>'
+    setTimeout(()=>load(),1200)
+  }
+}
+
+// ══ TAB 9: SETTINGS ══════════════════════════════════════
+function renderSettingsTab() {
+  const THEME_INFO = [
+    {id:'dark',    label:'🌙 Dark',         desc:'Default deep purple'},
+    {id:'light',   label:'☀️ Light',         desc:'Clean white/purple'},
+    {id:'ocean',   label:'🌊 Ocean',         desc:'Deep blue tones'},
+    {id:'forest',  label:'🌿 Forest',        desc:'Green &amp; nature'},
+    {id:'contrast',label:'◑ High Contrast', desc:'Maximum readability'},
+  ]
+  const current = localStorage.getItem('tt-theme')||'dark'
+  document.getElementById('theme-preview-grid').innerHTML = THEME_INFO.map(t=>`
+    <button onclick="applyTheme('${t.id}')"
+      style="padding:14px;border-radius:10px;cursor:pointer;text-align:left;
+             background:var(--card2);border:2px solid ${current===t.id?'var(--purple-lt)':'var(--border)'};
+             transition:.15s;font-family:inherit"
+      id="tbtn-${t.id}">
+      <div style="font-weight:700;font-size:.9rem">${t.label}</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:3px">${t.desc}</div>
+      ${current===t.id?'<div style="font-size:.7rem;color:var(--purple-lt);margin-top:4px">✓ Active</div>':''}
+    </button>`).join('')
+}
+
+async function changePin() {
+  const cur  = document.getElementById('cur-pin').value
+  const nw   = document.getElementById('new-pin').value
+  const nw2  = document.getElementById('new-pin2').value
+  const msg  = document.getElementById('pin-msg')
+  if (!cur || !nw || !nw2) { msg.innerHTML='<span class="text-red">Fill all fields</span>'; return }
+  if (nw !== nw2)           { msg.innerHTML='<span class="text-red">PINs do not match</span>'; return }
+  if (!/^\d{4,8}$/.test(nw)){ msg.innerHTML='<span class="text-red">PIN must be 4–8 digits</span>'; return }
+
+  const r = await fetch('/api/technical/set-password',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({current_pin:cur, pin:nw})
+  })
+  const d = await r.json()
+  if (d.ok) {
+    msg.innerHTML='<span class="text-green">✓ PIN changed — you will need it next login</span>'
+    ;['cur-pin','new-pin','new-pin2'].forEach(id=>document.getElementById(id).value='')
+  } else {
+    msg.innerHTML=`<span class="text-red">✗ ${d.error||'Error'}</span>`
+  }
+}
+
+// Re-render settings theme grid when theme changes
+const _origApplyTheme = window.applyTheme
+window.applyTheme = function(t) {
+  _origApplyTheme(t)
+  const el = document.getElementById('theme-preview-grid')
+  if (el) renderSettingsTab()
+}
+
+document.addEventListener('DOMContentLoaded', ()=>initTabs('tech-tabs'))
+load()
+setInterval(load, 30000)
+</script>
+{% endblock %}

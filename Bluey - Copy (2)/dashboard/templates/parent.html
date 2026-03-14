@@ -1,0 +1,849 @@
+{% extends "base.html" %}
+{% block title %}Parent Dashboard{% endblock %}
+
+{% block content %}
+<div class="page" id="parent-page">
+
+  <!-- ── Header ────────────────────────────────────────────── -->
+  <div class="flex-between mb-24 wrap gap-8">
+    <div>
+      <h1 style="font-size:1.6rem;font-weight:800">
+        👨‍👩‍👧 <span id="child-name-heading">Parent Dashboard</span>
+      </h1>
+      <p class="text-muted mt-4" style="font-size:.88rem">
+        Last played: <strong id="last-played">—</strong>
+        &nbsp;·&nbsp;
+        <span id="streak-display" class="text-amber fw-bold"></span>
+      </p>
+    </div>
+    <div class="flex gap-8 wrap">
+      <button class="btn btn-ghost btn-sm" onclick="load()">↻ Refresh</button>
+      <button class="btn btn-ghost btn-sm" onclick="openModal('profile-modal')">⚙ Profile</button>
+      <button class="btn btn-ghost btn-sm" onclick="openModal('goals-modal')">🎯 Goals</button>
+      <button class="btn btn-ghost btn-sm" onclick="openModal('notify-modal')">🔔 Alerts</button>
+      <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print Report</button>
+    </div>
+  </div>
+
+  <!-- ── Weekly narrative ──────────────────────────────────── -->
+  <div class="card mb-24" id="narrative-card">
+    <div class="flex-between mb-16">
+      <div class="card-title">📝 This Week's Summary</div>
+      <span class="text-muted" style="font-size:.78rem" id="narrative-date"></span>
+    </div>
+    <p id="narrative-text" style="font-size:1rem;line-height:1.7;color:var(--text)">Loading…</p>
+    <div class="flex gap-16 wrap mt-16" id="narrative-stats"></div>
+  </div>
+
+  <!-- ── Notification banner ───────────────────────────────── -->
+  <div id="notify-banner" style="display:none" class="alert alert-info mb-24"></div>
+  <div id="tip-banner"    style="display:none" class="alert alert-warn mb-24"></div>
+
+  <!-- ── Stat cards ────────────────────────────────────────── -->
+  <div class="stats-grid mb-24" id="stat-cards"></div>
+
+  <!-- ── Row 1: Heatmap + Journey charts ───────────────────── -->
+  <div class="grid-2 mb-24">
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Activity Calendar</div>
+          <div class="card-sub">Last 28 days</div>
+        </div>
+      </div>
+      <div class="heatmap-grid" id="heatmap"></div>
+      <div class="flex gap-12 mt-8" style="font-size:.72rem;color:var(--muted);flex-wrap:wrap">
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#160e2a;vertical-align:middle;margin-right:4px"></span>None</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#1a68c0;vertical-align:middle;margin-right:4px"></span>Some</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#32dc64;vertical-align:middle;margin-right:4px"></span>Active</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#ffd428;vertical-align:middle;margin-right:4px"></span>High</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Learning Journey</div>
+      </div>
+      <p class="card-sub mb-16" style="margin-top:-12px">Daily accuracy — 80% = mastery line</p>
+      <div class="chart-wrap"><canvas id="acc-chart"></canvas></div>
+      <div class="divider"></div>
+      <p class="card-sub mb-16">Response speed  ↓ faster is better</p>
+      <div class="chart-wrap"><canvas id="rt-chart"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- ── Row 2: Time-of-day + Fatigue ──────────────────────── -->
+  <div class="grid-2 mb-24">
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">⏰ Best Time to Learn</div>
+          <div class="card-sub">Accuracy by hour of day (last 28 days)</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="tod-chart"></canvas></div>
+      <p id="tod-tip" class="text-muted mt-8" style="font-size:.82rem"></p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🧠 Attention & Fatigue</div>
+          <div class="card-sub">Response time: start vs end of session</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="fatigue-chart"></canvas></div>
+      <p id="fatigue-tip" class="text-muted mt-8" style="font-size:.82rem"></p>
+    </div>
+
+  </div>
+
+  <!-- ── Row 3: Subject progress ───────────────────────────── -->
+  <p class="section-title">Subject Overview</p>
+  <div class="grid-3 mb-24">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🔤 Letters</div>
+        <span id="letter-summary" class="text-muted" style="font-size:.82rem"></span>
+      </div>
+      <div class="letter-grid" id="letter-grid"></div>
+      <div class="divider"></div>
+      <div class="flex gap-12 wrap" style="font-size:.72rem">
+        <span style="color:var(--green)">■ Mastered</span>
+        <span style="color:var(--blue)">■ Started</span>
+        <span style="color:var(--muted2)">■ Not yet</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🔢 Numbers</div>
+        <span id="num-summary" class="text-muted" style="font-size:.82rem"></span>
+      </div>
+      <div id="num-lessons"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🔷 Shapes &amp; Colors</div>
+        <span id="shape-summary" class="text-muted" style="font-size:.82rem"></span>
+      </div>
+      <div id="shape-lessons"></div>
+      <div class="divider"></div>
+      <div style="text-align:center;padding:8px 0">
+        <canvas id="mastery-donut" style="max-width:150px;max-height:150px;margin:0 auto;display:block"></canvas>
+        <p class="text-muted mt-8" style="font-size:.75rem">Overall mastery</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Row 4: Goals progress ─────────────────────────────── -->
+  <p class="section-title">🎯 Goals</p>
+  <div class="card mb-24" id="goals-progress-card">
+    <div id="goals-display">
+      <p class="empty">No goals set yet. Click <strong>Goals</strong> in the header to set some.</p>
+    </div>
+  </div>
+
+  <!-- ── Row 5: Milestones + Sessions ──────────────────────── -->
+  <div class="grid-2 mb-24">
+
+    <div class="card">
+      <div class="card-title mb-16">🏆 Milestones &amp; Achievements</div>
+      <div id="milestones-list"><p class="empty">Loading…</p></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📅 Recent Sessions</div>
+        <span class="text-muted" style="font-size:.78rem">Last 10</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Date</th><th>Duration</th>
+            <th>Questions</th><th>Accuracy</th><th>Avg Speed</th>
+          </tr></thead>
+          <tbody id="sessions-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Row 6: How to help at home ────────────────────────── -->
+  <p class="section-title">🏠 How to Help at Home</p>
+  <div class="grid-auto mb-24" id="home-tips"></div>
+
+  <!-- ════ MODALS ════════════════════════════════════════════ -->
+
+  <!-- Profile modal -->
+  <div class="modal-bg" id="profile-modal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('profile-modal')">✕</button>
+      <h2>Child Profile</h2>
+      <div class="form-group">
+        <label class="form-label">Child's Name</label>
+        <input class="form-control" id="p-name" placeholder="e.g. Amara" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Age</label>
+        <input class="form-control" id="p-age" type="number" min="2" max="18" placeholder="e.g. 7" />
+      </div>
+      <div class="flex gap-8 mt-16">
+        <button class="btn btn-primary" onclick="saveProfile()">Save</button>
+        <button class="btn btn-ghost" onclick="closeModal('profile-modal')">Cancel</button>
+      </div>
+      <div id="profile-msg" class="mt-8"></div>
+    </div>
+  </div>
+
+  <!-- Goals modal -->
+  <div class="modal-bg" id="goals-modal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('goals-modal')">✕</button>
+      <h2>🎯 Set Learning Goals</h2>
+      <p class="text-muted mb-16" style="font-size:.85rem">
+        Set target accuracy for each lesson. The dashboard will show progress toward these targets.
+      </p>
+      <div id="goals-form"></div>
+      <div class="flex gap-8 mt-16">
+        <button class="btn btn-primary" onclick="saveGoals()">Save Goals</button>
+        <button class="btn btn-ghost"   onclick="closeModal('goals-modal')">Cancel</button>
+      </div>
+      <div id="goals-msg" class="mt-8"></div>
+    </div>
+  </div>
+
+  <!-- Notifications modal -->
+  <div class="modal-bg" id="notify-modal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('notify-modal')">✕</button>
+      <h2>🔔 Alert Settings</h2>
+      <p class="text-muted mb-16" style="font-size:.85rem">
+        Alerts appear as banners on the dashboard when the condition is met.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Alert if no session in (days)</label>
+        <input class="form-control" id="n-inactive" type="number" min="0" max="30" placeholder="e.g. 3 (0 = off)" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="n-milestone" style="width:16px;height:16px" />
+          Show banner when a new letter or lesson is mastered
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="n-streak" style="width:16px;height:16px" />
+          Celebrate streak milestones (3, 7, 14 days)
+        </label>
+      </div>
+      <div class="flex gap-8 mt-16">
+        <button class="btn btn-primary" onclick="saveNotifications()">Save</button>
+        <button class="btn btn-ghost"   onclick="closeModal('notify-modal')">Cancel</button>
+      </div>
+      <div id="notify-msg" class="mt-8"></div>
+    </div>
+  </div>
+
+  <!-- Lesson detail modal -->
+  <div class="modal-bg" id="lesson-modal">
+    <div class="modal" style="width:min(720px,95vw)">
+      <button class="modal-close" onclick="closeModal('lesson-modal')">✕</button>
+      <h2 id="modal-lesson-title">Lesson</h2>
+      <div id="modal-stats" class="flex gap-16 wrap mb-16"></div>
+      <div class="grid-2">
+        <div>
+          <p class="card-sub mb-16">Accuracy trend (rolling 10 answers)</p>
+          <canvas id="modal-acc"></canvas>
+        </div>
+        <div>
+          <p class="card-sub mb-16">Response time trend (rolling 10 answers)</p>
+          <canvas id="modal-rt"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- ── Print-only report ─────────────────────────────────────── -->
+<div id="print-report" style="display:none">
+  <div style="font-family:'Nunito',sans-serif;max-width:680px;margin:0 auto;padding:32px;color:#111">
+    <div style="border-bottom:2px solid #8250ff;padding-bottom:16px;margin-bottom:24px">
+      <h1 style="font-size:1.4rem;font-weight:800;color:#8250ff">Touchless Tutor — Progress Report</h1>
+      <p id="pr-meta" style="color:#666;margin-top:4px;font-size:.88rem"></p>
+    </div>
+    <h2 style="font-size:1rem;margin-bottom:8px">This Week's Summary</h2>
+    <p id="pr-narrative" style="margin-bottom:20px;line-height:1.7"></p>
+    <h2 style="font-size:1rem;margin-bottom:12px">Key Metrics</h2>
+    <div id="pr-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px"></div>
+    <h2 style="font-size:1rem;margin-bottom:8px">Topic Status</h2>
+    <div id="pr-topics" style="margin-bottom:20px"></div>
+    <h2 style="font-size:1rem;margin-bottom:8px">How to Help at Home</h2>
+    <div id="pr-tips"></div>
+    <p style="margin-top:32px;font-size:.75rem;color:#999">
+      Generated by Touchless Tutor — <span id="pr-date"></span>
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const NUM_LESSONS   = ["addition","subtraction","multiplication",
+                        "division","counting","odd_even","fill_missing"]
+const SHAPE_LESSONS = ["shapes","colors"]
+const ALL_LESSONS   = [...NUM_LESSONS, ...SHAPE_LESSONS]
+const SHORT = {
+  addition:"Addition", subtraction:"Subtraction",
+  multiplication:"Multiplication", division:"Division",
+  counting:"Counting", odd_even:"Odd / Even",
+  fill_missing:"Fill Missing", shapes:"Shapes", colors:"Colors",
+}
+
+let _accChart, _rtChart, _donutChart, _todChart, _fatChart, _mAcc, _mRt
+let _data = null, _profile = null, _goals = null, _narrative = null
+
+// ── Bootstrap ───────────────────────────────────────────────
+async function load() {
+  const [sumR, profR, narR] = await Promise.all([
+    fetch('/api/summary?days=30'),
+    fetch('/api/profile'),
+    fetch('/api/weekly-narrative'),
+  ])
+  _data      = await sumR.json()
+  _profile   = await profR.json()
+  _narrative = await narR.json()
+  _goals     = _profile.goals || {}
+
+  applyProfile()
+  renderNarrative()
+  renderNotifyBanner()
+  renderTipBanner()
+  renderStats(_data)
+  renderHeatmap(_data.heatmap, 'heatmap')
+  renderTrendCharts(_data)
+  renderLetters(_data.letters)
+  renderLessonPanel('num-lessons',   'num-summary',   NUM_LESSONS,   _data.lessons)
+  renderLessonPanel('shape-lessons', 'shape-summary', SHAPE_LESSONS, _data.lessons)
+  renderDonut(_data)
+  renderGoalsDisplay()
+  renderMilestones()
+  renderSessions(_data.sessions)
+  renderHomeTips()
+  renderTimeOfDay()
+  renderFatigue()
+  populateGoalsForm()
+  populateNotifyForm()
+  setUpdated()
+}
+
+// ── Profile ─────────────────────────────────────────────────
+function applyProfile() {
+  const name = _profile.name || ''
+  document.getElementById('child-name-heading').textContent =
+    name ? `${name}'s Progress` : 'Parent Dashboard'
+  document.getElementById('p-name').value = name
+  document.getElementById('p-age').value  = _profile.age || ''
+  const s = _data.streak
+  document.getElementById('last-played').textContent = _data.last_played || '—'
+  document.getElementById('streak-display').textContent =
+    s > 0 ? `🔥 ${s} day streak` : 'No streak yet'
+}
+
+async function saveProfile() {
+  const name = document.getElementById('p-name').value.trim()
+  const age  = document.getElementById('p-age').value
+  const r    = await fetch('/api/profile', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, age})
+  })
+  const d = await r.json()
+  _profile = d.profile
+  applyProfile()
+  document.getElementById('profile-msg').innerHTML =
+    '<span class="text-green">✓ Saved</span>'
+  setTimeout(() => {
+    closeModal('profile-modal')
+    document.getElementById('profile-msg').innerHTML = ''
+  }, 800)
+}
+
+// ── Weekly narrative ─────────────────────────────────────────
+function renderNarrative() {
+  const n = _narrative
+  document.getElementById('narrative-text').textContent = n.narrative || '—'
+  document.getElementById('narrative-date').textContent =
+    `Week of ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}`
+  const stats = [
+    {lbl:'Sessions this week', val: n.days_active ?? '—'},
+    {lbl:'Questions answered', val: n.total_q ?? '—'},
+    {lbl:'Accuracy',           val: n.acc_pct != null ? n.acc_pct+'%' : '—'},
+    {lbl:'vs last week',       val: n.acc_delta != null
+        ? (n.acc_delta>0?'+':'')+n.acc_delta+'%' : '—',
+     col: n.acc_delta>0?'var(--green)':n.acc_delta<0?'var(--red)':'var(--muted)'},
+    {lbl:'Best topic',         val: n.best_lesson ?? '—'},
+    {lbl:'Needs attention',    val: n.worst_lesson ?? '—'},
+  ]
+  document.getElementById('narrative-stats').innerHTML = stats.map(s => `
+    <div style="text-align:center;min-width:90px">
+      <div style="font-size:1.25rem;font-weight:800;color:${s.col||'var(--cyan)'}">
+        ${s.val}
+      </div>
+      <div style="font-size:.7rem;color:var(--muted)">${s.lbl}</div>
+    </div>`).join('')
+
+  // Populate print report
+  document.getElementById('pr-narrative').textContent = n.narrative || ''
+  document.getElementById('pr-date').textContent = new Date().toLocaleDateString()
+  const childName = _profile?.name || 'Student'
+  document.getElementById('pr-meta').textContent =
+    `${childName} · Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}`
+}
+
+// ── Notification banner ──────────────────────────────────────
+function renderNotifyBanner() {
+  const n       = _profile.notifications || {}
+  const banner  = document.getElementById('notify-banner')
+  const msgs    = []
+
+  if (n.inactive_days > 0 && _data.days_active === 0) {
+    msgs.push(`⚠️ No sessions in the last ${n.inactive_days} days. Try a short session today!`)
+  }
+  if (n.milestone && (_data.mastered_lessons > 0 || _data.mastered_letters > 0)) {
+    msgs.push(`🌟 New milestone reached! Check the achievements section below.`)
+  }
+  if (n.streak && _data.streak >= 3 && [3,7,14].includes(_data.streak)) {
+    msgs.push(`🔥 Amazing! ${_data.streak}-day streak unlocked!`)
+  }
+  if (msgs.length) {
+    banner.innerHTML = msgs.join('<br>')
+    banner.style.display = 'flex'
+    banner.style.flexDirection = 'column'
+  } else {
+    banner.style.display = 'none'
+  }
+}
+
+// ── Struggling tip banner ────────────────────────────────────
+function renderTipBanner() {
+  const banner = document.getElementById('tip-banner')
+  const name   = _profile.name || 'Your child'
+  let tip = null
+  if (_data.struggling?.length > 0) {
+    tip = `💡 <strong>Focus suggestion:</strong> ${name} is finding <strong>${_data.struggling[0]}</strong> tricky (below 60%). Try 5 short daily questions to build confidence.`
+  } else if (_data.best_improved) {
+    tip = `🚀 <strong>Great progress!</strong> <strong>${_data.best_improved}</strong> has improved the most — keep celebrating that!`
+  }
+  if (tip) { banner.innerHTML = tip; banner.style.display='flex' }
+  else { banner.style.display='none' }
+}
+
+// ── Stat cards ───────────────────────────────────────────────
+function renderStats(d) {
+  const items = [
+    {val:d.overall_acc+'%',                           lbl:'Overall Accuracy',   c:'var(--green)'},
+    {val:d.total_questions,                           lbl:'Questions Answered', c:'var(--cyan)'},
+    {val:d.days_active,                               lbl:'Days Active (30d)',  c:'var(--amber)'},
+    {val:`${d.mastered_lessons}/${d.total_lessons}`,  lbl:'Lessons Mastered',   c:'var(--purple-lt)'},
+    {val:`${d.mastered_letters}/26`,                  lbl:'Letters Mastered',   c:'var(--blue)'},
+    {val:d.avg_rt+'s',                                lbl:'Avg Response Time',  c:'var(--orange)'},
+    {val:d.avg_fa_rate+'%',                           lbl:'First-Attempt Rate', c:'var(--pink)'},
+    {val:'★ '+d.total_stars,                          lbl:'Stars Earned',       c:'var(--amber)'},
+  ]
+  document.getElementById('stat-cards').innerHTML = items.map(it => `
+    <div class="stat-card" style="--accent-color:${it.c}">
+      <div class="stat-val">${it.val}</div>
+      <div class="stat-lbl">${it.lbl}</div>
+    </div>`).join('')
+}
+
+// ── Trend charts ─────────────────────────────────────────────
+function renderTrendCharts(d) {
+  const sessions = [...d.sessions].sort((a,b)=>a.ts-b.ts)
+  const labels   = sessions.map(s=>s.date)
+  const accVals  = sessions.map(s=>Math.round(s.accuracy*100))
+  const rtVals   = sessions.map(s=>s.avg_response_s||null)
+
+  if (_accChart) _accChart.destroy()
+  _accChart = new Chart(document.getElementById('acc-chart'),{
+    type:'line',
+    data:{labels, datasets:[
+      dataset(accVals, C.purple),
+      {data:Array(labels.length).fill(80), borderColor:'rgba(50,220,100,.35)',
+       borderDash:[5,5], pointRadius:0, borderWidth:1.5, fill:false, tension:0},
+    ]},
+    options:{...yPct(CD), plugins:{...CD.plugins, tooltip:{...CD.plugins.tooltip,
+      callbacks:{label:ctx=>ctx.datasetIndex===0?ctx.parsed.y+'%':'80% target'}}}}
+  })
+
+  if (_rtChart) _rtChart.destroy()
+  _rtChart = new Chart(document.getElementById('rt-chart'),{
+    type:'line',
+    data:{labels, datasets:[dataset(rtVals, C.cyan)]},
+    options:{...ySeconds(CD)}
+  })
+}
+
+// ── Time of day ──────────────────────────────────────────────
+async function renderTimeOfDay() {
+  const r    = await fetch('/api/time-of-day')
+  const data = await r.json()
+  const active = data.filter(d=>d.questions>0)
+
+  const labels = data.map(d=>{
+    const h = d.hour
+    return h===0?'12am':h<12?h+'am':h===12?'12pm':(h-12)+'pm'
+  })
+  const accVals = data.map(d=>d.accuracy)
+  const qVals   = data.map(d=>d.questions)
+
+  if (_todChart) _todChart.destroy()
+  _todChart = new Chart(document.getElementById('tod-chart'),{
+    type:'bar',
+    data:{labels, datasets:[
+      {data:accVals, backgroundColor: accVals.map(v=>
+          v===null?'rgba(42,36,80,.3)':v>=80?'rgba(50,220,100,.7)':v>=60?'rgba(255,212,40,.7)':'rgba(255,79,79,.6)'),
+       borderRadius:4, yAxisID:'y'},
+    ]},
+    options:{...CD,
+      scales:{
+        x:{...CD.scales.x, display:true,
+           ticks:{...CD.scales.x.ticks, maxRotation:45, font:{size:9}}},
+        y:{...CD.scales.y, min:0, max:100,
+           ticks:{...CD.scales.y.ticks, callback:v=>v+'%'}}
+      }
+    }
+  })
+
+  // Best hour tip
+  if (active.length > 0) {
+    const best = active.reduce((a,b)=>(a.accuracy||0)>(b.accuracy||0)?a:b)
+    const h    = best.hour
+    const tod  = h<12?'morning':h<17?'afternoon':'evening'
+    const label= h===0?'12am':h<12?h+'am':h===12?'12pm':(h-12)+'pm'
+    document.getElementById('tod-tip').textContent =
+      `Best performance at ${label} (${tod}). Try to schedule sessions around this time.`
+  } else {
+    document.getElementById('tod-tip').textContent = 'Not enough data yet.'
+  }
+}
+
+// ── Fatigue chart ────────────────────────────────────────────
+async function renderFatigue() {
+  const r    = await fetch('/api/fatigue')
+  const data = await r.json()
+
+  if (!data.length) {
+    document.getElementById('fatigue-tip').textContent = 'Not enough session data yet.'
+    return
+  }
+
+  const labels = data.map(d=>d.date)
+  const first  = data.map(d=>d.first_rt)
+  const second = data.map(d=>d.second_rt)
+  const avgDelta = data.reduce((s,d)=>s+d.delta,0)/data.length
+
+  if (_fatChart) _fatChart.destroy()
+  _fatChart = new Chart(document.getElementById('fatigue-chart'),{
+    type:'line',
+    data:{labels, datasets:[
+      {label:'Start of session', data:first,  borderColor:C.green,
+       backgroundColor:rgba(C.green,.1), fill:true, tension:.35, pointRadius:3, borderWidth:2},
+      {label:'End of session',   data:second, borderColor:C.red,
+       backgroundColor:rgba(C.red,.08),  fill:true, tension:.35, pointRadius:3, borderWidth:2},
+    ]},
+    options:{...ySeconds({...CD, plugins:{...CD.plugins, legend:{display:true,
+      labels:{color:'#7a72aa', font:{size:10,family:'Nunito'}, padding:12}}}})}
+  })
+
+  if (avgDelta > 1.5) {
+    document.getElementById('fatigue-tip').textContent =
+      `⚠️ Response time rises by ~${avgDelta.toFixed(1)}s toward the end of sessions — consider shorter sessions or a break halfway.`
+  } else if (avgDelta < -0.5) {
+    document.getElementById('fatigue-tip').textContent =
+      `✓ Getting faster as the session progresses — great focus and warming up well!`
+  } else {
+    document.getElementById('fatigue-tip').textContent =
+      `✓ Consistent response time throughout sessions — good attention span.`
+  }
+}
+
+// ── Letters ──────────────────────────────────────────────────
+function renderLetters(letters) {
+  let mastered=0, started=0
+  document.getElementById('letter-grid').innerHTML =
+    Object.entries(letters).map(([lt,info])=>{
+      if(info.status==='mastered') mastered++
+      else if(info.status==='started') started++
+      const star  = info.status==='mastered'?'<span class="lt-star">★</span>':''
+      const stage = info.stage>0?`<span class="lt-stage">S${info.stage}</span>`:''
+      return `<div class="lt ${info.status}" title="${lt}: Stage ${info.stage} — ${info.status}">${lt}${star}${stage}</div>`
+    }).join('')
+  document.getElementById('letter-summary').textContent =
+    `${mastered} mastered · ${started} started`
+}
+
+// ── Lesson panel ─────────────────────────────────────────────
+function renderLessonPanel(containerId, summaryId, ids, allLessons) {
+  const lessons  = allLessons.filter(l=>ids.includes(l.id))
+  const mastered = lessons.filter(l=>l.status==='mastered').length
+  document.getElementById(summaryId).textContent = `${mastered}/${lessons.length} mastered`
+
+  // Goal targets
+  document.getElementById(containerId).innerHTML = lessons.map(l=>{
+    const pct   = l.accuracy_pct
+    const bcls  = pct>=80?'bar-green':pct>=50?'bar-amber':'bar-red'
+    const goal  = _goals[l.id]
+    const goalHtml = goal ? `<span style="font-size:.7rem;color:var(--muted)">Goal: ${goal}%</span>` : ''
+    return `
+    <div class="flex-between" style="margin-bottom:11px;cursor:pointer"
+         onclick="openLessonModal('${l.id}','${l.name}',${JSON.stringify(l).replace(/'/g,"&#39;")})">
+      <div>
+        <span class="fw-bold" style="font-size:.88rem">${l.name}</span>
+        ${pill(l.status)}
+        ${goalHtml}
+      </div>
+      <div class="flex-center gap-8" style="min-width:150px;justify-content:flex-end">
+        <span style="font-size:.82rem;color:${pct>=80?'var(--green)':pct>=50?'var(--amber)':'var(--red)'};font-weight:700">${pct}%</span>
+        <div class="bar-track" style="width:76px">
+          <div class="bar-fill ${bcls}" style="width:${pct}%"></div>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+// ── Mastery donut ────────────────────────────────────────────
+function renderDonut(d) {
+  const mastered  = d.mastered_lessons + d.mastered_letters
+  const started   = d.lessons.filter(l=>l.status==='started').length +
+                    Object.values(d.letters).filter(v=>v.status==='started').length
+  const untouched = (d.total_lessons+26) - mastered - started
+  if (_donutChart) _donutChart.destroy()
+  _donutChart = new Chart(document.getElementById('mastery-donut'),{
+    type:'doughnut',
+    data:{
+      labels:['Mastered','In Progress','Not Started'],
+      datasets:[{data:[mastered,started,untouched],
+        backgroundColor:['rgba(50,220,100,.8)','rgba(60,180,255,.7)','rgba(42,36,80,.6)'],
+        borderColor:['#32dc64','#3cb4ff','#2a2450'],borderWidth:2}]
+    },
+    options:{responsive:true, maintainAspectRatio:true, cutout:'65%',
+      plugins:{
+        legend:{display:true,position:'bottom',
+          labels:{color:'#7a72aa',font:{size:9,family:'Nunito'},padding:8}},
+        tooltip:{...CD.plugins.tooltip,
+          callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed}`}}
+      }
+    }
+  })
+}
+
+// ── Goals display ────────────────────────────────────────────
+function renderGoalsDisplay() {
+  const goals = _goals
+  if (!goals || !Object.keys(goals).length) return
+  const lessons = (_data.lessons||[])
+  document.getElementById('goals-display').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+      ${Object.entries(goals).map(([lid,target])=>{
+        const l   = lessons.find(x=>x.id===lid)
+        if (!l) return ''
+        const cur = l.accuracy_pct
+        const pct = Math.min(100, Math.round(cur/target*100))
+        const col = pct>=100?'var(--green)':pct>=70?'var(--amber)':'var(--red)'
+        return `<div class="card" style="padding:14px">
+          <div class="flex-between mb-16">
+            <span class="fw-bold" style="font-size:.88rem">${l.name}</span>
+            <span style="font-size:.78rem;color:var(--muted)">Target: ${target}%</span>
+          </div>
+          <div class="flex-between mb-16" style="align-items:flex-end">
+            <span style="font-size:1.6rem;font-weight:800;color:${col}">${cur}%</span>
+            <span style="font-size:.78rem;color:var(--muted)">${pct}% of goal</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${pct}%;background:${col}"></div>
+          </div>
+          ${pct>=100?'<p class="text-green mt-8" style="font-size:.78rem;font-weight:700">🎉 Goal reached!</p>':''}
+        </div>`
+      }).join('')}
+    </div>`
+
+  // Print report topics
+  const allLessons = _data.lessons || []
+  document.getElementById('pr-topics').innerHTML = allLessons.map(l=>`
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:.85rem">
+      <span>${l.name}</span>
+      <span style="font-weight:700;color:${l.accuracy_pct>=80?'#22a855':l.accuracy_pct>=50?'#e6ac00':'#dc2626'}">
+        ${l.accuracy_pct}% — ${l.status}
+      </span>
+    </div>`).join('')
+}
+
+// ── Goals form ───────────────────────────────────────────────
+function populateGoalsForm() {
+  document.getElementById('goals-form').innerHTML = ALL_LESSONS.map(lid=>`
+    <div class="form-group">
+      <label class="form-label">${SHORT[lid]} — target accuracy (%)</label>
+      <input class="form-control" id="goal-${lid}" type="number"
+             min="50" max="100" placeholder="e.g. 80"
+             value="${_goals[lid]||''}" />
+    </div>`).join('')
+}
+
+async function saveGoals() {
+  const goals = {}
+  ALL_LESSONS.forEach(lid=>{
+    const v = parseInt(document.getElementById(`goal-${lid}`).value)
+    if(v>=50 && v<=100) goals[lid]=v
+  })
+  await fetch('/api/goals',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(goals)})
+  _goals = goals
+  renderGoalsDisplay()
+  renderLessonPanel('num-lessons','num-summary',NUM_LESSONS,_data.lessons)
+  renderLessonPanel('shape-lessons','shape-summary',SHAPE_LESSONS,_data.lessons)
+  document.getElementById('goals-msg').innerHTML='<span class="text-green">✓ Goals saved</span>'
+  setTimeout(()=>{closeModal('goals-modal');document.getElementById('goals-msg').innerHTML=''},800)
+}
+
+// ── Notify form ──────────────────────────────────────────────
+function populateNotifyForm() {
+  const n = _profile.notifications||{}
+  document.getElementById('n-inactive').value   = n.inactive_days||''
+  document.getElementById('n-milestone').checked= !!n.milestone
+  document.getElementById('n-streak').checked   = !!n.streak
+}
+
+async function saveNotifications() {
+  const body = {
+    inactive_days: parseInt(document.getElementById('n-inactive').value)||0,
+    milestone:     document.getElementById('n-milestone').checked,
+    streak:        document.getElementById('n-streak').checked,
+  }
+  await fetch('/api/notifications',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+  _profile.notifications = body
+  renderNotifyBanner()
+  document.getElementById('notify-msg').innerHTML='<span class="text-green">✓ Saved</span>'
+  setTimeout(()=>{closeModal('notify-modal');document.getElementById('notify-msg').innerHTML=''},800)
+}
+
+// ── Milestones ───────────────────────────────────────────────
+async function renderMilestones() {
+  const r    = await fetch('/api/milestones')
+  const evts = await r.json()
+  const el   = document.getElementById('milestones-list')
+  if(!evts.length){el.innerHTML='<p class="empty">Play some lessons to earn milestones!</p>';return}
+  el.innerHTML = evts.slice(0,10).map(e=>`
+    <div class="flex-center gap-12" style="padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:1.5rem">${e.icon}</span>
+      <span style="font-size:.875rem">${e.label}</span>
+    </div>`).join('')
+}
+
+// ── Sessions ─────────────────────────────────────────────────
+function renderSessions(sessions) {
+  const tbody = document.getElementById('sessions-body')
+  if(!sessions.length){
+    tbody.innerHTML='<tr><td colspan="5" class="empty">No sessions yet</td></tr>';return
+  }
+  tbody.innerHTML = sessions.slice(0,10).map(s=>{
+    const acc=Math.round(s.accuracy*100)
+    const col=acc>=80?'var(--green)':acc>=60?'var(--amber)':'var(--red)'
+    return `<tr>
+      <td>${s.date}</td>
+      <td>${s.duration_min>0?s.duration_min+'m':'—'}</td>
+      <td>${s.questions} <span class="text-muted">(${s.correct}✓)</span></td>
+      <td style="color:${col};font-weight:700">${acc}%</td>
+      <td>${s.avg_response_s>0?s.avg_response_s+'s':'—'}</td>
+    </tr>`
+  }).join('')
+}
+
+// ── Home tips ────────────────────────────────────────────────
+async function renderHomeTips() {
+  const r    = await fetch('/api/home-tips')
+  const tips = await r.json()
+  document.getElementById('home-tips').innerHTML = tips.map(t=>`
+    <div class="card">
+      <div class="card-title mb-16">💡 ${t.lesson}</div>
+      <p style="font-size:.9rem;line-height:1.65;color:var(--text)">${t.tip}</p>
+    </div>`).join('')
+
+  // Print tips
+  document.getElementById('pr-tips').innerHTML = tips.map(t=>`
+    <div style="margin-bottom:12px;padding:10px;background:#f9f9f9;border-radius:8px;font-size:.85rem">
+      <strong>${t.lesson}:</strong> ${t.tip}
+    </div>`).join('')
+}
+
+// ── Lesson modal ─────────────────────────────────────────────
+async function openLessonModal(id, name, data) {
+  document.getElementById('modal-lesson-title').textContent = name
+  document.getElementById('modal-stats').innerHTML = [
+    {lbl:'Accuracy',        val:data.accuracy_pct+'%'},
+    {lbl:'Questions',       val:data.attempts},
+    {lbl:'Best Streak',     val:'★ '+data.best_streak},
+    {lbl:'Avg Response',    val:data.avg_rt+'s'},
+    {lbl:'First Attempt',   val:data.fa_rate_pct+'%'},
+    {lbl:'Improvement',     val:(data.improvement>0?'+':'')+data.improvement+'%'},
+  ].map(x=>`
+    <div style="text-align:center;min-width:80px">
+      <div style="font-size:1.35rem;font-weight:800;color:var(--cyan)">${x.val}</div>
+      <div style="font-size:.7rem;color:var(--muted)">${x.lbl}</div>
+    </div>`).join('')
+  openModal('lesson-modal')
+  const r=await fetch(`/api/lesson/${id}/charts`)
+  const c=await r.json()
+  if(_mAcc)_mAcc.destroy()
+  _mAcc=new Chart(document.getElementById('modal-acc'),{type:'line',
+    data:{labels:c.accuracy_series.map(p=>p.x),
+          datasets:[dataset(c.accuracy_series.map(p=>p.y),C.purple)]},
+    options:yPct(CD)})
+  if(_mRt)_mRt.destroy()
+  _mRt=new Chart(document.getElementById('modal-rt'),{type:'line',
+    data:{labels:c.rt_series.map(p=>p.x),
+          datasets:[dataset(c.rt_series.map(p=>p.y),C.cyan)]},
+    options:ySeconds(CD)})
+}
+
+// ── Print override ───────────────────────────────────────────
+window.addEventListener('beforeprint', ()=>{
+  document.getElementById('print-report').style.display='block'
+  document.getElementById('pr-narrative').textContent =
+    document.getElementById('narrative-text').textContent
+  // Print stats
+  document.getElementById('pr-stats').innerHTML = [
+    {lbl:'Overall Accuracy', val:_data?.overall_acc+'%'},
+    {lbl:'Days Active',      val:_data?.days_active},
+    {lbl:'Questions',        val:_data?.total_questions},
+  ].map(s=>`<div style="background:#f5f5f5;padding:10px;border-radius:6px;text-align:center">
+      <div style="font-size:1.4rem;font-weight:800">${s.val}</div>
+      <div style="font-size:.72rem;color:#666">${s.lbl}</div>
+    </div>`).join('')
+})
+window.addEventListener('afterprint', ()=>{
+  document.getElementById('print-report').style.display='none'
+})
+
+load()
+setInterval(load, 30000)
+</script>
+
+<style>
+@media print {
+  #parent-page { display: none !important; }
+  #print-report { display: block !important; }
+  .topnav { display: none !important; }
+}
+</style>
+{% endblock %}
