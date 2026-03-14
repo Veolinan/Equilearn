@@ -32,8 +32,9 @@ _HAND_CONNECTIONS = [
     (5,9),(9,13),(13,17),
 ]
 
-PINCH_THRESHOLD = 0.28   # normalised — real pinch sits ~0.20-0.26, open hand ~0.5+
-SMOOTHING       = 0.45   # slightly more responsive
+PINCH_THRESHOLD  = 0.28   # normalised — real pinch ~0.20-0.26, open hand ~0.5+
+SMOOTHING        = 0.18   # EMA factor — lower = smoother but slightly laggier
+SMOOTHING_PINCH  = 0.10   # extra dampening when pinching (fingers touching = more noise)
 
 
 class GestureState:
@@ -113,7 +114,8 @@ class GestureEngine:
     def _parse(self, hands: list) -> GestureFrame:
         gf = GestureFrame()
         if not hands:
-            self._smooth = None
+            self._smooth    = None
+            self._smooth_lm = None
             gf.cursor = (self.sw // 2, self.sh // 2)
             return gf
 
@@ -134,23 +136,35 @@ class GestureEngine:
         ]
 
         gf.hand_visible = True
-        gf.landmarks    = lm
 
-        # Smoothed cursor — midpoint of thumb tip (4) + index tip (8)
-        raw_cur = ((lm[4][0] + lm[8][0]) // 2,
-                   (lm[4][1] + lm[8][1]) // 2)
-        if self._smooth is None:
-            self._smooth = raw_cur
+        # Smooth all 21 landmarks — reduces skeleton jitter visually
+        if not hasattr(self, '_smooth_lm') or self._smooth_lm is None:
+            self._smooth_lm = lm[:]
         else:
-            sx = self._smooth[0] + SMOOTHING * (raw_cur[0] - self._smooth[0])
-            sy = self._smooth[1] + SMOOTHING * (raw_cur[1] - self._smooth[1])
-            self._smooth = (int(sx), int(sy))
-        gf.cursor = self._smooth
+            self._smooth_lm = [
+                (int(self._smooth_lm[i][0] + SMOOTHING * (lm[i][0] - self._smooth_lm[i][0])),
+                 int(self._smooth_lm[i][1] + SMOOTHING * (lm[i][1] - self._smooth_lm[i][1])))
+                for i in range(len(lm))
+            ]
+        gf.landmarks = self._smooth_lm
 
-        # Pinch (normalised)
+        # Pinch distance — compute on raw lm (not smoothed) for accurate detection
         hand_size  = math.hypot(lm[0][0]-lm[9][0], lm[0][1]-lm[9][1])
         pinch_dist = math.hypot(lm[4][0]-lm[8][0], lm[4][1]-lm[8][1])
         norm_pinch = pinch_dist / max(hand_size, 1)
+        is_pinch   = norm_pinch < PINCH_THRESHOLD
+
+        # Cursor: midpoint of thumb+index, with stronger smoothing when pinching
+        raw_cur = ((lm[4][0] + lm[8][0]) // 2,
+                   (lm[4][1] + lm[8][1]) // 2)
+        factor = SMOOTHING_PINCH if is_pinch else SMOOTHING
+        if self._smooth is None:
+            self._smooth = raw_cur
+        else:
+            sx = self._smooth[0] + factor * (raw_cur[0] - self._smooth[0])
+            sy = self._smooth[1] + factor * (raw_cur[1] - self._smooth[1])
+            self._smooth = (int(sx), int(sy))
+        gf.cursor = self._smooth
 
         # Finger extension
         tips = [8, 12, 16, 20];  pips = [6, 10, 14, 18]
@@ -199,20 +213,60 @@ class GestureEngine:
 
 # ── Hold-to-select tracker ─────────────────────────────────────────────────
 class HoldDetector:
+    """
+    Tracks pinch-hold progress with a grace period.
+    Brief interruptions (hand flicker, single dropped frame) do not reset
+    progress — the hold timer only resets if the pinch breaks for longer
+    than GRACE_S seconds.
+    """
+    GRACE_S = 0.22   # seconds of interrupted pinch tolerated before reset
+
     def __init__(self, hold_seconds: float = 1.5):
         self.hold_seconds = hold_seconds
-        self._start: dict[str, float] = {}
+        self._start     : dict[str, float] = {}   # key → hold start time
+        self._last_active: dict[str, float] = {}  # key → last time active=True
+        self._progress  : dict[str, float] = {}   # key → frozen progress at break
 
     def update(self, key: str, active: bool) -> tuple[float, bool]:
+        now = time.time()
+
         if active:
+            self._last_active[key] = now
+
             if key not in self._start:
-                self._start[key] = time.time()
-            elapsed  = time.time() - self._start[key]
+                # Fresh start or resuming after grace — adjust start so
+                # progress continues from where it was
+                already = self._progress.get(key, 0.0)
+                self._start[key] = now - already * self.hold_seconds
+
+            elapsed  = now - self._start[key]
             progress = min(elapsed / self.hold_seconds, 1.0)
+            self._progress[key] = progress
+
             if progress >= 1.0:
-                del self._start[key]
+                # Clean up and fire
+                for d in (self._start, self._last_active, self._progress):
+                    d.pop(key, None)
                 return 1.0, True
             return progress, False
+
         else:
-            self._start.pop(key, None)
+            last = self._last_active.get(key)
+            if last and (now - last) < self.GRACE_S:
+                # Within grace period — freeze progress, keep start alive
+                return self._progress.get(key, 0.0), False
+
+            # Grace period expired — full reset
+            for d in (self._start, self._last_active, self._progress):
+                d.pop(key, None)
             return 0.0, False
+
+    def reset(self, key: str | None = None):
+        """Manually reset one key or all keys."""
+        if key is None:
+            self._start.clear()
+            self._last_active.clear()
+            self._progress.clear()
+        else:
+            for d in (self._start, self._last_active, self._progress):
+                d.pop(key, None)
